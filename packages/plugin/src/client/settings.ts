@@ -1,0 +1,898 @@
+import { createBrowserLogin } from './browser-login.js'
+import { createHostPairingPanel } from './pairing.js'
+import { createServerNotice } from './server-notice.js'
+import QRCode from 'qrcode'
+import type { LocalizedMessage, Translate } from '../client-locale.js'
+import type { OAuthProviderInfo } from '../server-api.js'
+import type { StatusFeed } from '../status-stream.js'
+import {
+  connectionErrorMessage,
+  connectionStatusClass,
+  connectionStatusLabel,
+  formatLocalTime,
+  displayRemoteAccount,
+  messageOf,
+  startupErrorMessage,
+} from './presentation.js'
+import type {
+  ClientReact,
+  LoginMethod,
+  OAuthProvider,
+  OAuthQrPollResult,
+  OAuthQrSession,
+  PluginAssociation,
+  PluginConfigureResult,
+  PluginSettingsView,
+  RemoteStatus,
+  SidebarEntryPreference,
+  SidebarEntryStyle,
+} from './types.js'
+
+type SettingsLoginMethod = LoginMethod | 'device_pairing'
+
+const sidebarEntryChoices: ReadonlyArray<{ value: SidebarEntryStyle; label: 'sidebarEntryStandard' | 'sidebarEntryCompact' }> = [
+  { value: 'standard', label: 'sidebarEntryStandard' },
+  { value: 'compact', label: 'sidebarEntryCompact' },
+]
+
+export function createRemotePluginOptions(React: ClientReact) {
+  const BrowserLogin = createBrowserLogin(React)
+  const ServerNotice = createServerNotice(React)
+  const HostPairingPanel = createHostPairingPanel(React)
+  function RemotePluginOptions(props: {
+    control: <T>(endpoint: string, payload?: unknown) => Promise<T>
+    statusFeed: StatusFeed<RemoteStatus>
+    onSignIn?: () => void
+    preferredQrProvider?: string
+    sidebarEntry?: SidebarEntryPreference
+    t: Translate
+    view?: 'summary' | 'page'
+  }): unknown {
+    const { t } = props
+    const subscribeStatus = typeof props.statusFeed?.subscribe === 'function'
+      ? props.statusFeed.subscribe
+      : () => () => {}
+    const getStatusSnapshot = typeof props.statusFeed?.getSnapshot === 'function'
+      ? props.statusFeed.getSnapshot
+      : () => undefined
+    const modeStatus = React.useSyncExternalStore(
+      subscribeStatus, getStatusSnapshot, getStatusSnapshot,
+    )
+    const [open, setOpen] = React.useState(props.view === 'page')
+    const [serverUrl, setServerUrl] = React.useState('')
+    const [savingServer, setSavingServer] = React.useState(false)
+    const [editingServer, setEditingServer] = React.useState(false)
+    const serverDraftEdited = React.useRef(false)
+    const [remoteToolsBusy, setRemoteToolsBusy] = React.useState(false)
+    const [remoteToolsEnabled, setRemoteToolsEnabled] = React.useState(true)
+    const [associations, setAssociations] = React.useState<Partial<Record<'host' | 'client', PluginAssociation>>>({})
+    const [loaded, setLoaded] = React.useState(false)
+    const [writable, setWritable] = React.useState(false)
+    const [busy, setBusy] = React.useState(false)
+    const [terminalEnabled, setTerminalEnabled] = React.useState(false)
+    const [debugBusy, setDebugBusy] = React.useState(false)
+    const [debugLogging, setDebugLogging] = React.useState(false)
+    const [resetBusy, setResetBusy] = React.useState(false)
+    const [retryStartupBusy, setRetryStartupBusy] = React.useState(false)
+    const [terminalBusy, setTerminalBusy] = React.useState(false)
+    const [sidebarEntry, setSidebarEntry] = React.useState<SidebarEntryStyle>(() => props.sidebarEntry?.read?.() ?? 'standard')
+    const [sidebarEntryBusy, setSidebarEntryBusy] = React.useState(false)
+    const [acpBackends, setAcpBackends] = React.useState<Array<{ id: string; enabled: boolean }>>([])
+    const [acpAvailability, setAcpAvailability] = React.useState<Record<string, boolean>>({})
+    const [acpChecking, setAcpChecking] = React.useState<Record<string, boolean>>({})
+    const [acpInstalling, setAcpInstalling] = React.useState<Record<string, boolean>>({})
+    const [acpCheckResults, setAcpCheckResults] = React.useState<Record<string, boolean | undefined>>({})
+    const [reconnectBusy, setReconnectBusy] = React.useState(false)
+    const [hostStatus, setHostStatus] = React.useState<RemoteStatus['host'] | undefined>(undefined)
+    const [hostName, setHostName] = React.useState('')
+    const [hostDeviceId, setHostDeviceId] = React.useState('')
+    const [notice, setNotice] = React.useState<LocalizedMessage | undefined>(undefined)
+    const [error, setError] = React.useState<string | undefined>(undefined)
+    const [settingsView, setSettingsView] = React.useState<PluginSettingsView | undefined>(undefined)
+
+    // Inline Sign-In state (folds/unfolds inside the settings card without modal dialog)
+    const [signInOpen, setSignInOpen] = React.useState(false)
+    const [loginEmail, setLoginEmail] = React.useState('')
+    const [loginPassword, setLoginPassword] = React.useState('')
+    const [loginMethod, setLoginMethod] = React.useState<SettingsLoginMethod>('password')
+    const [oauthProviders, setOAuthProviders] = React.useState<OAuthProviderInfo[]>([])
+    const [providersLoading, setProvidersLoading] = React.useState(false)
+    const [providersFailed, setProvidersFailed] = React.useState(false)
+    const [pairingServerUrl, setPairingServerUrl] = React.useState<string | undefined>(undefined)
+    const [qrSession, setQrSession] = React.useState<OAuthQrSession | undefined>(undefined)
+    const [qrImage, setQrImage] = React.useState<string | undefined>(undefined)
+    const [qrExpired, setQrExpired] = React.useState(false)
+    const [qrFailed, setQrFailed] = React.useState(false)
+    const [qrBusy, setQrBusy] = React.useState(false)
+    const [qrCompleted, setQrCompleted] = React.useState(false)
+    const [providerReload, setProviderReload] = React.useState(0)
+    const [completionReload, setCompletionReload] = React.useState(0)
+    const qrFlowRun = React.useRef(0)
+    const providerRequestRun = React.useRef(0)
+    const loginMethodManuallySelected = React.useRef(false)
+
+    const associationReadRun = React.useRef(0)
+    const association = associations.client ?? associations.host
+    React.useEffect(() => { if (association !== undefined) setSignInOpen(false) }, [association])
+    const savedServerUrl = settingsView?.config.serverUrl
+    const pairingAvailable = pairingServerUrl !== undefined && pairingServerUrl === savedServerUrl
+    const serverDirty = savedServerUrl === undefined || serverUrl.trim() !== savedServerUrl
+    React.useEffect(() => {
+      setPairingServerUrl(undefined)
+      setLoginMethod(current => current === 'device_pairing' ? 'password' : current)
+    }, [savedServerUrl])
+
+    const applyAssociations = (view: PluginSettingsView): void => {
+      setAssociations(view.associations ?? (view.association === undefined ? {} : { host: view.association }))
+    }
+
+    const applyView = (view: PluginSettingsView, updateAssociations = true): void => {
+      setSettingsView(view)
+      if (!serverDraftEdited.current) setServerUrl(view.config.serverUrl ?? 'https://agent.xcodex.vip')
+      setTerminalEnabled(view.config.terminal?.enabled ?? true)
+      setDebugLogging(view.config.logLevel === 'debug')
+      setRemoteToolsEnabled(view.config.remoteTools?.enabled ?? true)
+      setSidebarEntry(view.config.sidebar?.entry ?? 'standard')
+      props.sidebarEntry?.publish(view.config.sidebar?.entry ?? 'standard')
+      setAcpBackends((view.config.acp?.backends ?? []).map(item => ({ id: item.id, enabled: item.enabled !== false })))
+      setAcpAvailability(view.acpAvailability ?? {})
+      if (updateAssociations) applyAssociations(view)
+      setWritable(view.writable)
+      setLoaded(true)
+    }
+
+    const load = async (): Promise<void> => {
+      const run = ++associationReadRun.current
+      const [view, status] = await Promise.all([
+        props.control<PluginSettingsView>('settings.get'),
+        props.control<RemoteStatus>('status').catch(() => undefined),
+      ])
+      applyView(view, run === associationReadRun.current)
+      setHostStatus(status?.host)
+      setHostName(status?.deviceName ?? '')
+      setHostDeviceId(status?.host?.deviceId ?? '')
+    }
+
+    React.useEffect(() => {
+      void load().catch(reason => setError(messageOf(reason, t)))
+    }, [])
+
+    React.useEffect(() => {
+      let active = true
+      let authorizationKey: string | undefined
+      const unsubscribe = props.statusFeed.subscribe(status => {
+        setHostStatus(status.host)
+        setHostName(status.deviceName ?? '')
+        setHostDeviceId(status.host?.deviceId ?? '')
+        // Either account entry point rotates these identities on sign-out.
+        // Refresh the read-only settings snapshot on that change without
+        // fetching settings for ordinary connection/statistics updates.
+        const key = JSON.stringify([status.serverUrl, status.deviceId, status.host?.deviceId,
+          status.host?.authorized, status.host?.account, status.startupError?.code])
+        if (key === authorizationKey) return
+        authorizationKey = key
+        const run = ++associationReadRun.current
+        void props.control<PluginSettingsView>('settings.get').then(view => {
+          if (active && run === associationReadRun.current) applyView(view)
+        }).catch(() => undefined)
+      })
+      return () => { active = false; unsubscribe() }
+    }, [props.statusFeed])
+
+
+
+    React.useEffect(() => {
+      if (!signInOpen || savingServer || serverDirty || providersLoading || !loginMethod.startsWith('oauth:')
+        || !oauthProviders.some(item => `oauth:${item.id}` === loginMethod)
+        || qrSession !== undefined || qrExpired || qrFailed || qrCompleted) return
+      let active = true
+      const run = ++qrFlowRun.current
+      setQrBusy(true)
+      setQrFailed(false)
+      setError(undefined)
+      setQrExpired(false)
+      void props.control<OAuthQrSession>('client.account.qr.start', { provider: loginMethod.slice(6) })
+        .then(async session => {
+          if (!active || run !== qrFlowRun.current) return
+          const image = await QRCode.toDataURL(session.scanUrl, {
+            width: 184,
+            margin: 1,
+            errorCorrectionLevel: 'L',
+          })
+          if (!active || run !== qrFlowRun.current) return
+          setQrSession(session)
+          setQrImage(image)
+        })
+        .catch(reason => {
+          if (!active || run !== qrFlowRun.current) return
+          setQrFailed(true)
+          setError(messageOf(reason, t))
+        })
+        .finally(() => {
+          if (active && run === qrFlowRun.current) setQrBusy(false)
+        })
+      return () => { active = false }
+    }, [signInOpen, providersLoading, oauthProviders, loginMethod, qrSession, qrExpired, qrFailed, providerReload, savingServer, serverDirty])
+
+    React.useEffect(() => {
+      if (!signInOpen || savingServer || serverDirty || !loginMethod.startsWith('oauth:') || qrSession === undefined) return
+      let active = true
+      let polling = false
+      let settled = false
+      const run = qrFlowRun.current
+      let timer: ReturnType<typeof setInterval> | undefined
+      const poll = (): void => {
+        if (polling || settled || !active || run !== qrFlowRun.current) return
+        polling = true
+        void props.control<OAuthQrPollResult>('client.account.qr.poll', { qrId: qrSession.qrId }).then(result => {
+          if (!active || settled || run !== qrFlowRun.current) return
+          if (result.status === 'complete') {
+            settled = true
+            if (timer !== undefined) clearInterval(timer)
+            setError(undefined)
+            setQrExpired(false)
+            setQrCompleted(true)
+            setQrSession(undefined)
+            setQrImage(undefined)
+            setQrBusy(false)
+          } else if (result.status === 'expired') {
+            settled = true
+            if (timer !== undefined) clearInterval(timer)
+            setQrExpired(true)
+            setQrSession(undefined)
+            setQrImage(undefined)
+            setQrBusy(false)
+          }
+        }).catch(reason => {
+          if (active && !settled && run === qrFlowRun.current) setError(messageOf(reason, t))
+        }).finally(() => {
+          polling = false
+        })
+      }
+      poll()
+      timer = setInterval(poll, 1_500)
+      return () => {
+        active = false
+        settled = true
+        if (timer !== undefined) clearInterval(timer)
+      }
+    }, [signInOpen, loginMethod, qrSession, savingServer, serverDirty])
+
+    // Dedicated settings refresh effect on QR authorization completion
+    React.useEffect(() => {
+      if (!signInOpen || savingServer || serverDirty || !qrCompleted) return
+      let active = true
+      setError(undefined)
+      void props.control<PluginSettingsView>('settings.get')
+        .then(view => {
+          if (!active) return
+          applyView(view)
+          setSignInOpen(false)
+          setQrCompleted(false)
+          setLoginPassword('')
+          setNotice({ key: 'authorizationComplete' })
+        })
+        .catch(reason => {
+          if (!active) return
+          setError(messageOf(reason, t))
+        })
+      return () => {
+        active = false
+      }
+    }, [signInOpen, qrCompleted, completionReload, savingServer, serverDirty])
+
+    const saveLoginServer = async (serverUrlOverride?: string): Promise<void> => {
+      const nextServerUrl = (serverUrlOverride ?? serverUrl).trim()
+      if (busy || savingServer || !writable || nextServerUrl === '' || serverUrlOverride === undefined && !serverDirty) return
+      setSavingServer(true)
+      setBusy(true)
+      setError(undefined)
+      setNotice(undefined)
+      qrFlowRun.current += 1
+      providerRequestRun.current += 1
+      setQrSession(undefined)
+      setQrImage(undefined)
+      setQrCompleted(false)
+      setQrFailed(false)
+      setQrExpired(false)
+      setQrBusy(false)
+      try {
+        const view = await props.control<PluginSettingsView>('settings.server.set', { serverUrl: nextServerUrl })
+        serverDraftEdited.current = false
+        setEditingServer(false)
+        applyView(view)
+        setLoginPassword('')
+        setLoginEmail('')
+        setHostStatus(undefined)
+        setProviderReload(value => value + 1)
+        setNotice({ key: view.applies === 'live' ? 'serverSavedLive' : 'serverSaved' })
+      } catch (reason) {
+        setError(messageOf(reason, t))
+      } finally {
+        setSavingServer(false)
+        setBusy(false)
+      }
+    }
+
+    const signInClient = async (): Promise<void> => {
+      if (savingServer || serverDirty || loginEmail.trim() === '' || loginPassword === '') return
+      setBusy(true)
+      setError(undefined)
+      try {
+        const result = await props.control<PluginConfigureResult>('settings.configure', {
+          role: 'client',
+          serverUrl: serverUrl.trim() || 'https://agent.xcodex.vip',
+          email: loginEmail.trim(),
+          password: loginPassword,
+        })
+        applyView(result.settings)
+        setSignInOpen(false)
+        setLoginPassword('')
+        setNotice({ key: 'authorizationComplete' })
+      } catch (reason) {
+        setError(messageOf(reason, t))
+      } finally {
+        setBusy(false)
+      }
+    }
+
+    const selectLoginMethod = (method: SettingsLoginMethod): void => {
+      loginMethodManuallySelected.current = true
+      if (method === loginMethod) return
+      qrFlowRun.current += 1
+      setLoginMethod(method)
+      setQrSession(undefined)
+      setQrImage(undefined)
+      setQrExpired(false)
+      setQrFailed(false)
+      setQrBusy(false)
+      setQrCompleted(false)
+      setError(undefined)
+    }
+
+    const logout = async (): Promise<void> => {
+      const run = ++associationReadRun.current
+      setBusy(true)
+      setError(undefined)
+      setNotice(undefined)
+      try {
+        const view = await props.control<PluginSettingsView>('settings.logout')
+        applyView(view, run === associationReadRun.current)
+        setSignInOpen(false)
+        setNotice({ key: 'signedOut' })
+      } catch (reason) {
+        setError(messageOf(reason, t))
+      } finally {
+        setBusy(false)
+      }
+    }
+
+    const reconnectHost = async (): Promise<void> => {
+      setReconnectBusy(true)
+      setError(undefined)
+      setNotice(undefined)
+      try {
+        const status = await props.control<RemoteStatus>('host.reconnect')
+        setHostStatus(status.host)
+        setNotice({ key: 'reconnectStarted' })
+      } catch (reason) {
+        setError(messageOf(reason, t))
+      } finally {
+        setReconnectBusy(false)
+      }
+    }
+
+    const setCurrentDeviceControl = async (enabled: boolean): Promise<void> => {
+      setBusy(true)
+      setError(undefined)
+      setNotice(undefined)
+      try {
+        const status = await props.control<RemoteStatus>('host.authorization.set', { enabled })
+        setHostStatus(status.host)
+      } catch (reason) {
+        setError(messageOf(reason, t))
+      } finally {
+        setBusy(false)
+      }
+    }
+
+    const setTerminalRemote = async (enabled: boolean): Promise<void> => {
+      const previous = terminalEnabled
+      setTerminalEnabled(enabled)
+      setTerminalBusy(true)
+      setError(undefined)
+      setNotice(undefined)
+      try {
+        const view = await props.control<PluginSettingsView>('settings.development.set', { terminalEnabled: enabled })
+        applyView(view)
+        setNotice({ key: 'terminalSaved' })
+      } catch (reason) {
+        setTerminalEnabled(previous)
+        setError(messageOf(reason, t))
+      } finally {
+        setTerminalBusy(false)
+      }
+    }
+
+    const setSidebarEntryStyle = async (entry: SidebarEntryStyle): Promise<void> => {
+      if (entry === sidebarEntry) return
+      const previous = sidebarEntry
+      setSidebarEntry(entry)
+      setSidebarEntryBusy(true)
+      setError(undefined)
+      setNotice(undefined)
+      try {
+        const view = await props.control<PluginSettingsView>('settings.appearance.set', { sidebarEntry: entry })
+        applyView(view)
+        setNotice({ key: 'sidebarEntrySaved' })
+      } catch (reason) {
+        setSidebarEntry(previous)
+        setError(messageOf(reason, t))
+      } finally {
+        setSidebarEntryBusy(false)
+      }
+    }
+
+    const setRemoteTools = async (enabled: boolean): Promise<void> => {
+      setRemoteToolsBusy(true); setError(undefined); setNotice(undefined)
+      try {
+        // Include the terminal value for compatibility with older Hosts whose
+        // development settings endpoint requires one of the legacy fields.
+        const view = await props.control<PluginSettingsView>('settings.development.set', { remoteToolsEnabled: enabled, terminalEnabled })
+        applyView(view)
+        setNotice({ key: 'remoteToolsSaved' })
+      }
+      catch (reason) { setRemoteToolsEnabled(!enabled); setError(messageOf(reason, t)) }
+      finally { setRemoteToolsBusy(false) }
+    }
+
+    const checkAcp = async (backend: string): Promise<void> => {
+      if (acpChecking[backend]) return
+      setAcpChecking(current => ({ ...current, [backend]: true }))
+      setAcpCheckResults(current => ({ ...current, [backend]: undefined }))
+      setError(undefined)
+      try {
+        const view = await props.control<PluginSettingsView>('settings.get')
+        applyView(view)
+        const available = view.acpAvailability?.[backend] === true
+        if (!available && view.writable && view.config.acp?.backends?.some(item => item.id === backend && item.enabled !== false)) {
+          applyView(await props.control<PluginSettingsView>('settings.acp.set', { backend, enabled: false }))
+        }
+        setAcpCheckResults(current => ({ ...current, [backend]: available }))
+        setNotice({ key: available ? 'acpAvailable' : 'acpUnavailable' })
+        setTimeout(() => setAcpCheckResults(current => ({ ...current, [backend]: undefined })), 5_000)
+      } catch (reason) {
+        setError(messageOf(reason, t))
+      } finally {
+        setAcpChecking(current => ({ ...current, [backend]: false }))
+      }
+    }
+
+    const removeAcp = async (backend: string): Promise<void> => {
+      setBusy(true)
+      setError(undefined)
+      try {
+        const view = await props.control<PluginSettingsView>('settings.acp.remove', { id: backend })
+        applyView(view)
+      } catch (reason) {
+        setError(messageOf(reason, t))
+      } finally {
+        setBusy(false)
+      }
+    }
+
+    const installOrConfigureAcp = async (backend: string): Promise<void> => {
+      if (acpInstalling[backend]) return
+      setAcpInstalling(current => ({ ...current, [backend]: true }))
+      setError(undefined)
+      try {
+        const view = await props.control<PluginSettingsView>('settings.acp.installOrConfigure', { backend })
+        applyView(view)
+        if (view.acpInstallResult?.action === 'download_required' && view.acpInstallResult.downloadUrl) {
+          const name = backend === 'cursor' ? 'Cursor' : backend === 'antigravity' ? 'Antigravity' : backend === 'hermes' ? 'Hermes' : backend
+          setNotice({
+            key: 'acpDownloadRequired',
+            params: { backend: name, url: view.acpInstallResult.downloadUrl },
+          })
+        } else if (view.acpInstallResult?.action === 'installed') {
+          setNotice({ key: 'acpInstalledNotice' })
+        } else {
+          setNotice({ key: 'acpConfiguredNotice' })
+        }
+      } catch (reason) {
+        setError(messageOf(reason, t))
+      } finally {
+        setAcpInstalling(current => ({ ...current, [backend]: false }))
+      }
+    }
+
+    const setDebug = async (enabled: boolean): Promise<void> => {
+      if (debugBusy) return
+      setDebugBusy(true)
+      setError(undefined)
+      try {
+        applyView(await props.control<PluginSettingsView>('settings.development.set', { debugLogging: enabled }))
+      } catch (reason) { setError(messageOf(reason, t)) }
+      finally { setDebugBusy(false) }
+    }
+
+    const developmentSetting = React.createElement('section', { className: 'xcodexRemoteDevelopmentSettings' },
+      React.createElement('div', { className: 'xcodexRemoteAuthorizationSetting' },
+        React.createElement('div', null,
+          React.createElement('strong', null, t('debugLogging')),
+          React.createElement('p', null, t('debugLoggingHint'))),
+        React.createElement('input', {
+          type: 'checkbox', role: 'switch', checked: debugLogging,
+          disabled: busy || debugBusy || !writable, 'aria-label': t('debugLogging'),
+          onChange: (event: Event) => void setDebug((event.target as HTMLInputElement).checked),
+        })),
+      React.createElement('div', { className: 'xcodexRemoteAuthorizationSetting' },
+        React.createElement('div', null,
+          React.createElement('strong', null, t('terminalRemote')),
+          React.createElement('p', null, t('terminalRemoteHint'))),
+        React.createElement('input', {
+          type: 'checkbox', role: 'switch', checked: terminalEnabled,
+          disabled: busy || terminalBusy || !writable, 'aria-label': t('terminalRemote'),
+          onChange: (event: Event) => void setTerminalRemote((event.target as HTMLInputElement).checked),
+        })),
+      React.createElement('div', { className: 'xcodexRemoteAuthorizationSetting' },
+        React.createElement('div', null,
+          React.createElement('strong', null, t('remoteTools')),
+          React.createElement('p', null, t('remoteToolsHint'))),
+        React.createElement('input', {
+          type: 'checkbox', role: 'switch', checked: remoteToolsEnabled,
+          disabled: remoteToolsBusy || !writable, 'aria-label': t('remoteTools'),
+          onChange: (event: Event) => {
+            const enabled = (event.target as HTMLInputElement).checked
+            setRemoteToolsEnabled(enabled)
+            void setRemoteTools(enabled)
+          },
+        })),
+    )
+
+    // The entry style is presentation only, so it lives beside the development
+    const resetIdentity = async (): Promise<void> => {
+      if (!window.confirm(t('resetIdentityConfirm'))) return
+      const run = ++associationReadRun.current
+      setResetBusy(true)
+      setError(undefined)
+      setNotice(undefined)
+      try {
+        const view = await props.control<PluginSettingsView>('settings.identity.reset', {})
+        const status = await props.control<RemoteStatus>('status').catch(() => undefined)
+        applyView(view, run === associationReadRun.current)
+        if (status !== undefined) {
+          setHostStatus(status.host)
+          setHostName(status.deviceName ?? '')
+          setHostDeviceId(status.host?.deviceId ?? '')
+        }
+        setSignInOpen(false)
+        setNotice({ key: 'resetIdentitySuccess' })
+      } catch (reason) {
+        setError(messageOf(reason, t))
+      } finally {
+        setResetBusy(false)
+      }
+    }
+
+    const resetDisabledByStartupState = settingsView?.startupError?.code === 'STORAGE_CONFLICT'
+      || settingsView?.startupError?.code === 'IDENTITY_LOCKED'
+
+    const retryStartup = async (): Promise<void> => {
+      if (retryStartupBusy) return
+      const run = ++associationReadRun.current
+      setRetryStartupBusy(true)
+      setError(undefined)
+      setNotice(undefined)
+      try {
+        const view = await props.control<PluginSettingsView>('settings.startup.retry', {})
+        const status = await props.control<RemoteStatus>('status').catch(() => undefined)
+        applyView(view, run === associationReadRun.current)
+        setHostStatus(status?.host)
+        setHostName(status?.deviceName ?? '')
+        setHostDeviceId(status?.host?.deviceId ?? '')
+        setNotice({ key: 'retryStartupSuccess' })
+      } catch (reason) {
+        setError(messageOf(reason, t))
+        void load().catch(() => undefined)
+      } finally {
+        setRetryStartupBusy(false)
+      }
+    }
+
+    const resetIdentitySetting = React.createElement('div', { className: 'xcodexRemoteAuthorizationSetting' },
+      React.createElement('div', null,
+        React.createElement('strong', null, t('resetIdentity')),
+        React.createElement('p', null, t('resetIdentityHint'))),
+      React.createElement('button', {
+        type: 'button',
+        className: 'xcodexRemoteDiscard',
+        disabled: busy || resetBusy || !writable || resetDisabledByStartupState,
+        onClick: () => void resetIdentity(),
+      }, t(resetBusy ? 'resettingAction' : 'resetIdentity')),
+    )
+
+    const startupErrorBanner = settingsView?.startupError !== undefined
+      ? React.createElement('div', { className: 'xcodexRemoteError', role: 'alert' },
+          React.createElement('p', null, startupErrorMessage(settingsView.startupError, t)),
+          React.createElement('button', {
+            type: 'button',
+            className: 'xcodexRemoteDiscard',
+            disabled: busy || resetBusy || retryStartupBusy,
+            onClick: () => void retryStartup(),
+          }, t('retryStartup')))
+      : null
+
+    // switches instead of inside the Host-facing settings block.
+    const sidebarEntrySetting = React.createElement('div', { className: 'xcodexRemoteAuthorizationSetting' },
+      React.createElement('div', null,
+        React.createElement('strong', null, t('sidebarEntry')),
+        React.createElement('p', null, t('sidebarEntryHint'))),
+      React.createElement('div', {
+        className: 'xcodexRemoteEntryStyleChoices',
+        role: 'radiogroup',
+        'aria-label': t('sidebarEntry'),
+      }, sidebarEntryChoices.map(choice => React.createElement('button', {
+        key: choice.value,
+        type: 'button',
+        role: 'radio',
+        'aria-checked': sidebarEntry === choice.value,
+        className: sidebarEntry === choice.value ? 'isSelected' : undefined,
+        disabled: sidebarEntryBusy || !writable,
+        onClick: () => void setSidebarEntryStyle(choice.value),
+      }, t(choice.label)))))
+
+    const acpSetting = React.createElement('details', { className: 'xcodexRemoteAuthorizationSetting xcodexRemoteAcpSetting' },
+      React.createElement('summary', null,
+        React.createElement('div', { className: 'xcodexRemoteAcpSummaryText' },
+          React.createElement('strong', null, t('agentBackends')),
+          React.createElement('p', null, t('acpHint'), React.createElement('a', {
+            href: 'https://github.com/liguobao/ds-harness-remote/blob/feat/cursor-remote/docs/acp-remote.md',
+            target: '_blank', rel: 'noopener noreferrer',
+            onClick: (event: Event) => event.stopPropagation(),
+          }, t('acpDocumentation'))))),
+      React.createElement('div', { className: 'xcodexRemoteAcpList' }, acpBackends.map(item => React.createElement('div', { key: item.id, className: 'xcodexRemoteAuthorizationSetting' },
+        React.createElement('div', null, React.createElement('strong', null, item.id === 'codex' ? 'CodeX' : item.id === 'cursor' ? 'Cursor' : item.id === 'antigravity' ? 'AGY' : item.id === 'claude' ? 'Claude' : item.id === 'pi' ? 'Pi' : item.id === 'opencode' ? 'OpenCode' : item.id === 'hermes' ? 'Hermes' : item.id), null),
+        React.createElement('span', { className: 'xcodexRemoteAcpCheckCell' },
+          // One entry per backend: while the command is unresolved this slot is
+          // the fix (scan / install), once it resolves it turns back into the
+          // read-only availability check. Keeping both visible at once made the
+          // row read as two competing actions.
+          writable && !busy && acpAvailability[item.id] !== true && ['codex', 'cursor', 'antigravity', 'pi', 'claude', 'opencode', 'hermes'].includes(item.id)
+            ? React.createElement('a', {
+              href: `#install-acp-${item.id}`,
+              className: `xcodexRemoteAcpInstallLink${acpInstalling[item.id] ? ' isInstalling' : ''}`,
+              onClick: (event: Event) => { event.preventDefault(); void installOrConfigureAcp(item.id) },
+            }, acpInstalling[item.id] ? t('installingAcp') : (['cursor', 'antigravity', 'hermes'].includes(item.id) ? t('configureAcp') : t('installAcp')))
+            : React.createElement('a', { href: `#check-acp-${item.id}`, className: `xcodexRemoteAcpCheckLink${acpChecking[item.id] ? ' isChecking' : acpCheckResults[item.id] === undefined ? '' : acpCheckResults[item.id] ? ' isPassed' : ' isFailed'}`, onClick: (event: Event) => { event.preventDefault(); void checkAcp(item.id) } },
+              acpChecking[item.id] ? t('checkingAcp') : acpCheckResults[item.id] === undefined ? t('checkAcp') : t(acpCheckResults[item.id] ? 'acpCheckPassed' : 'acpCheckFailed'))),
+        ['codex', 'cursor', 'antigravity', 'pi', 'claude', 'opencode', 'hermes'].includes(item.id) ? null : React.createElement('a', { href: `#remove-acp-${item.id}`, className: 'xcodexRemoteAcpRemoveLink', onClick: (event: Event) => { event.preventDefault(); void removeAcp(item.id) } }, t('removeAcp')),
+        React.createElement('input', {
+          type: 'checkbox', role: 'switch', checked: settingsView?.config.acp?.enabled === true && item.enabled && acpAvailability[item.id] === true, 'aria-label': item.id, disabled: busy || !writable || acpChecking[item.id] === true || acpAvailability[item.id] !== true,
+          onChange: (event: Event) => void props.control<PluginSettingsView>('settings.acp.set', { backend: item.id, enabled: (event.target as HTMLInputElement).checked }).then(view => { applyView(view); setAcpBackends((view.config.acp?.backends ?? []).map(v => ({ id: v.id, enabled: v.enabled !== false }))) }).catch(reason => setError(messageOf(reason, t)))
+        }))),
+        ))
+
+    if (props.view === 'summary') return React.createElement('span', null, t('pluginDescription'))
+
+    // Managed sessions live in native DSH conversations. This page stays an account entry.
+    if (settingsView?.config.managedAgents?.enabled === true) return React.createElement('div', {
+      className: 'xcodexRemotePluginCard xcodexRemotePluginModern', 'data-xcodex-remote-settings': '',
+    },
+      React.createElement('strong', null, t('pluginTitle')),
+      startupErrorBanner,
+      association === undefined
+        ? React.createElement(BrowserLogin, { control: props.control, t, serverUrl, disabled: busy, onComplete: load })
+        : React.createElement('div', { className: 'xcodexRemoteAssociation' },
+          React.createElement('strong', null, association.account === undefined ? t('authorizationComplete') : displayRemoteAccount(association.account)),
+          React.createElement('p', null, serverUrl),
+          React.createElement('button', { type: 'button', disabled: busy, onClick: () => { void logout() } }, t(busy ? 'signingOut' : 'signOut'))),
+      error === undefined ? null : React.createElement('p', { role: 'alert' }, error))
+
+    const orderedQrProviders = [...oauthProviders].sort((a, b) =>
+      Number(b.id === props.preferredQrProvider) - Number(a.id === props.preferredQrProvider))
+    const selectedProvider = oauthProviders.find(item => `oauth:${item.id}` === loginMethod)
+    const scanLabel = t('scanWithProvider', { provider: selectedProvider?.displayName ?? '' })
+    const passwordVisible = !savingServer && !serverDirty && loginMethod === 'password' && (
+      loginMethodManuallySelected.current || (!providersLoading && oauthProviders.length === 0)
+    )
+
+    const qrLoginTab = (provider: OAuthProviderInfo): unknown => React.createElement('button', {
+      key: provider.id, type: 'button', role: 'tab', id: `xcodex-remote-settings-oauth:${provider.id}-tab`,
+      'aria-selected': loginMethod === `oauth:${provider.id}`, 'aria-controls': `xcodex-remote-settings-oauth:${provider.id}-panel`,
+      className: loginMethod === `oauth:${provider.id}` ? 'isActive' : '', disabled: busy,
+      onClick: () => selectLoginMethod(`oauth:${provider.id}`),
+    }, provider.displayName)
+
+    const inlineSignIn = !signInOpen || association !== undefined ? null : React.createElement('div', {
+      id: 'xcodex-remote-inline-signin',
+      className: 'xcodexRemoteInlineSignIn',
+    },
+      React.createElement(BrowserLogin, { control: props.control, t, serverUrl, disabled: serverDirty || savingServer, onComplete: async () => { await load(); setSignInOpen(false) } }),
+              React.createElement('div', { className: 'xcodexRemoteServiceAddress' },
+                React.createElement('span', null, t('currentServiceAddress')),
+                editingServer
+                  ? React.createElement('form', {
+                    className: 'xcodexRemoteLoginServer',
+                    onSubmit: (event: Event) => { event.preventDefault(); void saveLoginServer() },
+                  },
+                    React.createElement('input', {
+                      id: 'xcodex-remote-settings-server', type: 'url', required: true,
+                      'aria-label': t('serverUrl'), value: serverUrl,
+                      disabled: busy || savingServer || !writable, autoComplete: 'url',
+                      placeholder: t('serverUrl'), onChange: (event: Event) => {
+                        serverDraftEdited.current = true
+                        setServerUrl((event.target as HTMLInputElement).value)
+                      },
+                    }),
+                    React.createElement('button', {
+                      type: 'submit', disabled: busy || savingServer || !writable || !serverDirty || serverUrl.trim() === '',
+                    }, t(savingServer ? 'saving' : 'save')),
+                    React.createElement('button', {
+                      type: 'button', disabled: busy || savingServer || !writable,
+                      onClick: () => { serverDraftEdited.current = true; setServerUrl('https://agent.xcodex.vip'); void saveLoginServer('https://agent.xcodex.vip') },
+                    }, t('restoreDefaultServiceAddress')),
+                    React.createElement('button', {
+                      type: 'button', disabled: busy || savingServer || !writable,
+                      onClick: () => {
+                        serverDraftEdited.current = false
+                        setServerUrl(savedServerUrl ?? 'https://agent.xcodex.vip')
+                        setEditingServer(false)
+                      },
+                    }, t('cancelServiceAddressEdit')))
+                  : React.createElement(React.Fragment, null,
+                    React.createElement('a', {
+                      href: savedServerUrl ?? serverUrl, target: '_blank', rel: 'noreferrer',
+                    }, savedServerUrl ?? serverUrl),
+                    React.createElement('button', {
+                      type: 'button', className: 'xcodexRemoteServiceAddressEdit',
+                      disabled: busy || savingServer || !writable,
+                      title: t('editServiceAddress'), 'aria-label': t('editServiceAddress'),
+                      onClick: () => setEditingServer(true),
+                    }, React.createElement('svg', {
+                      viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none',
+                      stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round',
+                      'aria-hidden': true,
+                    }, React.createElement('path', { d: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4L16.5 3.5Z' }))))),
+    )
+
+    return React.createElement(props.view === 'page' ? 'div' : 'li', {
+      className: `xcodexRemotePluginCard${open ? ' isOpen' : ''}${props.view === 'page' ? ' xcodexRemotePluginModern' : ''}`,
+      ...(props.view === 'page' ? { 'data-xcodex-remote-settings': '' } : {}),
+    },
+      React.createElement('div', { className: 'xcodexRemotePluginCardHeader' },
+        React.createElement('button', {
+          type: 'button',
+          className: 'xcodexRemotePluginCardToggle',
+          'aria-expanded': open,
+          'aria-label': t(open ? 'collapseSettings' : 'expandSettings', { name: t('pluginTitle') }),
+          onClick: () => setOpen(current => !current),
+        },
+          React.createElement('span', { className: 'xcodexRemotePluginCardHeading' },
+            React.createElement('strong', null, t('pluginTitle')),
+            React.createElement('span', null, t('pluginDescription'))),
+          association === undefined ? null : React.createElement('span', {
+            className: `xcodexRemotePluginCardStatus${connectionStatusClass(hostStatus)}`,
+          }, hostStatus?.authorized && !hostStatus.accountRequired && !hostStatus.online
+            && (hostStatus.error !== undefined || hostStatus.lastActiveAt !== undefined)
+            ? React.createElement(ServerNotice, {
+              offline: true,
+              linked: (hostStatus.connectedClients?.length ?? 0) > 0,
+              expiresAt: hostStatus.recoveryExpiresAt, t,
+            })
+            : modeStatus?.mode === 'remote'
+              ? t('remoteTarget', { name: modeStatus.target?.name ?? t('host') })
+              : t('local')),
+          React.createElement('span', { className: 'xcodexRemotePluginCardChevron', 'aria-hidden': true }, '⌄'))),
+      !open ? null : React.createElement('div', { className: 'xcodexRemotePluginCardBody' },
+        !loaded
+          ? React.createElement('p', { className: 'xcodexRemoteSettingsState' }, error ?? t('loadingSettings'))
+          : association !== undefined
+            ? React.createElement('div', { className: 'xcodexRemoteSettings' },
+              React.createElement('div', { className: 'xcodexRemoteSettingsTop' },
+                React.createElement('div', { className: 'xcodexRemoteAssociation' },
+                  React.createElement('span', null, t(association.account === undefined ? 'authorization' : 'account')),
+                  React.createElement('strong', null, association.account === undefined ? t('authorizationComplete') : displayRemoteAccount(association.account)),
+                  React.createElement('p', null, association.account === undefined
+                    ? serverUrl
+                    : t('authorizedOn', { role: 'Remote', serverUrl })))),
+              React.createElement('div', { className: 'xcodexRemoteHostIdentity' },
+                React.createElement('div', null,
+                  React.createElement('span', null, t('hostName')),
+                  React.createElement('strong', null, hostName || '—')),
+                React.createElement('div', null,
+                  React.createElement('span', null, t('deviceId')),
+                  React.createElement('code', null, hostDeviceId || '—'))),
+              startupErrorBanner,
+              developmentSetting,
+              sidebarEntrySetting,
+              resetIdentitySetting,
+              acpSetting,
+              React.createElement('div', { className: 'xcodexRemoteAuthorizationSetting' },
+                React.createElement('div', null,
+                  React.createElement('strong', null, t('allowControlCurrentDevice')),
+                  React.createElement('p', null, t('thisMachineHost'))),
+                React.createElement('input', {
+                  type: 'checkbox', role: 'switch', disabled: busy,
+                  'aria-label': t('allowControlCurrentDevice'),
+                  checked: hostStatus?.authorized === true,
+                  onChange: (event: Event) => void setCurrentDeviceControl((event.target as HTMLInputElement).checked),
+                })),
+              React.createElement('div', { className: 'xcodexRemoteConnection', 'aria-live': 'polite' },
+                React.createElement('div', { className: 'xcodexRemoteConnectionSummary' },
+                  React.createElement('span', null, t('connection')),
+                  React.createElement('strong', null,
+                    React.createElement('span', {
+                      className: `xcodexRemoteConnectionDot${connectionStatusClass(hostStatus)}`,
+                      'aria-hidden': true,
+                    }),
+                    connectionStatusLabel(hostStatus, t)),
+                  React.createElement('p', null, hostStatus === undefined
+                    ? t('checkingConnection')
+                    : hostStatus.lastActiveAt === undefined
+                      ? t('neverConnected')
+                      : t('lastActive', { time: formatLocalTime(hostStatus.lastActiveAt) }))),
+                React.createElement('button', {
+                  type: 'button',
+                  className: 'xcodexRemoteReconnect',
+                  disabled: reconnectBusy || hostStatus?.configured === false,
+                  onClick: () => void reconnectHost(),
+                }, t(reconnectBusy ? 'reconnectingAction' : 'reconnect'))),
+              hostStatus?.authorized && !hostStatus.accountRequired ? React.createElement(ServerNotice, {
+                offline: !hostStatus.online && hostStatus.reconnecting,
+                linked: (hostStatus.connectedClients?.length ?? 0) > 0,
+                expiresAt: hostStatus.recoveryExpiresAt, t,
+              }) : null,
+              hostStatus?.error === undefined || hostStatus.online || (hostStatus.reconnecting && hostStatus.error === 'CONNECTION_FAILED')
+                ? null
+                : React.createElement('p', { className: 'xcodexRemoteConnectionIssue', role: 'status' }, connectionErrorMessage(hostStatus.error, t)),
+              !writable ? React.createElement('p', { className: 'xcodexRemoteError' }, t('readOnly')) : null,
+              React.createElement('div', { className: 'xcodexRemoteSettingsFooter' },
+                React.createElement('p', {
+                  className: error !== undefined ? 'xcodexRemoteError' : 'xcodexRemoteNotice',
+                  role: error !== undefined ? 'alert' : 'status',
+                }, error ?? (notice === undefined ? '' : t(notice.key, notice.params))),
+                React.createElement('button', {
+                  type: 'button',
+                  className: 'xcodexRemoteDiscard',
+                  disabled: busy || !writable,
+                  onClick: () => void logout(),
+                }, t(busy ? 'signingOut' : 'signOut'))),
+              inlineSignIn)
+            : React.createElement('div', { className: 'xcodexRemoteSettings' },
+              startupErrorBanner,
+              React.createElement('div', { className: 'xcodexRemoteHostIdentity' },
+                React.createElement('div', null,
+                  React.createElement('span', null, t('hostName')),
+                  React.createElement('strong', null, hostName || '—')),
+                React.createElement('div', null,
+                  React.createElement('span', null, t('deviceId')),
+                  React.createElement('code', null, hostDeviceId || '—'))),
+              developmentSetting,
+              sidebarEntrySetting,
+              resetIdentitySetting,
+              acpSetting,
+              React.createElement('div', { className: 'xcodexRemoteSettingsSignIn' },
+                React.createElement('p', { className: 'xcodexRemoteSettingsState' }, t('authorizeFromRemote')),
+                React.createElement('button', {
+                  type: 'button',
+                  className: signInOpen ? 'xcodexRemoteDiscard' : 'xcodexRemoteSave',
+                  disabled: busy || resetBusy || !loaded || settingsView?.startupError !== undefined,
+                  'aria-expanded': signInOpen,
+                  'aria-controls': 'xcodex-remote-inline-signin',
+                  onClick: () => {
+                    setError(undefined)
+                    setSignInOpen(current => !current)
+                  },
+                }, t(signInOpen ? 'close' : 'signInAccount'))),
+              inlineSignIn,
+              !writable ? React.createElement('p', { className: 'xcodexRemoteError' }, t('readOnly')) : null,
+              error !== undefined || notice !== undefined ? React.createElement('div', { className: 'xcodexRemoteSettingsFooter' },
+                React.createElement('p', {
+                  className: error !== undefined ? 'xcodexRemoteError' : 'xcodexRemoteNotice',
+                  role: error !== undefined ? 'alert' : 'status',
+                }, error ?? t(notice!.key, notice!.params))) : null)))
+  }
+
+  return RemotePluginOptions
+}

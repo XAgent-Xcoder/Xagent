@@ -1,0 +1,20 @@
+# GitHub installs resolve this repository's root package. Keep this patch at
+# the root and point it at the package/plugin id so DSH Desktop can recognize
+# and load the repository directly as a bundle.
+#
+# This release ships the browser/Desktop Host surface only. dsh-TUI integration
+# is deferred to a later release, so no terminal-specific entry is inserted.
+- insert:
+    - id: xcodex-remote
+      name: xagent
+      inject:
+        - webServer
+      config:
+        enabled: true
+        role: host
+        serverUrl: https://agent.xcodex.vip
+        managedAgents:
+          enabled: true
+        codex:
+          enabled: true
+          binary: codex

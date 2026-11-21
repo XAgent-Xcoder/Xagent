@@ -1,0 +1,69 @@
+import type { ManagedLaunchSelection } from './launch.js'
+import type { ManagedQuestion } from './questions.js'
+import type { AgentSessionCapabilities } from './capabilities.js'
+
+export interface ManagedAgentDefinition {
+  agent: string
+  title: string
+  icon: string
+  capabilities: AgentSessionCapabilities
+}
+
+export interface ManagedAgentOpen {
+  sessionId: string
+  launch?: ManagedLaunchSelection
+  launchFingerprint?: string
+  workspacePath: string
+  agent: string
+  providerSessionId?: string
+  model?: string
+  reasoningEffort?: string
+}
+
+export type ManagedAgentEvent =
+  | { type: 'question'; requestId: string; title: string; questions: ManagedQuestion[] }
+  | { type: 'question-closed'; requestId: string }
+  | { type: 'text-delta' | 'reasoning-delta'; text: string; itemId: string }
+  | { type: 'text'; text: string; itemId?: string }
+  | { type: 'reasoning'; text: string; itemId?: string }
+  | { type: 'tool'; itemId: string; name: string; status: 'running' | 'completed'; data: unknown }
+  | { type: 'approval'; requestId: string; title: string; choices: string[]; data: unknown }
+  | { type: 'turn-started'; turnId: string }
+  | { type: 'turn-completed'; turnId?: string; status: 'completed' | 'cancelled' | 'failed' }
+  | { type: 'error'; code: string; message: string }
+  | { type: 'unavailable'; code: string }
+
+export type ManagedAgentEmit = (event: ManagedAgentEvent) => void
+export type ManagedAgentDispatch =
+  | { state: 'accepted'; providerTurnId?: string }
+  | { state: 'unknown'; reason: string }
+  /** Provider proved no input was delivered; retry requires a new operation ID. */
+  | { state: 'rejected'; reason: string }
+
+export interface ManagedAgentConnection {
+  providerSessionId: string
+  readonly defaultModel?: { model: string; reasoningEffort?: string }
+  send(input: { messageId: string; text: string }): Promise<ManagedAgentDispatch>
+  answerQuestion?(requestId: string, answers: Record<string, string[]>): Promise<void>
+  isIdle?(): Promise<'idle' | 'busy' | 'unknown'>
+  cancel(): Promise<void>
+  approve(requestId: string, choice: string): Promise<void>
+  close(): Promise<void>
+  models?(options?: { refresh?: boolean }): Promise<unknown>
+  setOption?(key: string, value: string): Promise<void>
+}
+
+export interface ManagedAgentAdapter {
+  open(input: ManagedAgentOpen, emit: ManagedAgentEmit): Promise<ManagedAgentConnection>
+  copyConversation?: (...args: never[]) => unknown
+  compact?: (...args: never[]) => unknown
+  changeThreadGoal?: (...args: never[]) => unknown
+  rewind?: (...args: never[]) => unknown
+  recoverRewind?: (...args: never[]) => unknown
+  forkForRewind?: (...args: never[]) => unknown
+}
+
+export interface ManagedAgentRegistration {
+  definition: ManagedAgentDefinition
+  adapter: ManagedAgentAdapter
+}
