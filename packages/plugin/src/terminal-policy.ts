@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { RpcError } from './safe-error.js'
 import type { TypertRpcResult } from './typert-gateway-contract.js'
 import { parseCodexSessionId } from './codex/session-id.js'
+import type { Guardrail } from './guardrail.js'
 
 export const TERMINAL_CALLS = new Set(['terminal/environment', 'terminal/shells', 'terminal/list',
   'terminal/create', 'terminal/write', 'terminal/resize', 'terminal/rename', 'terminal/close'])
@@ -14,7 +15,7 @@ export class TerminalPolicy {
   private readonly attachments = new Map<string, { id: string; claim?: object }>()
   private readonly claims: Map<string, object>
   constructor(private readonly enabled: boolean | (() => boolean), private readonly deviceId: string,
-    private readonly owners: Map<string, string>) {
+    private readonly owners: Map<string, string>, private readonly guardrail?: Guardrail) {
     this.claims = TerminalPolicy.claims.get(owners) ?? new Map()
     TerminalPolicy.claims.set(owners, this.claims)
   }
@@ -52,6 +53,14 @@ export class TerminalPolicy {
     if (endpoint === 'terminal/follow') this.attachments.set(key, { id: id.parse(args.attachmentId), claim: this.claims.get(key) })
     if (endpoint === 'terminal/write' || endpoint === 'terminal/resize') {
       if (this.attachments.get(key)?.id !== id.parse(args.attachmentId)) this.deny()
+    }
+    // Additive guardrail gate: the allowlist above decides whether this
+    // terminal may be written at all; the guardrail decides whether this typed
+    // command should pass right now (destructive patterns denied).
+    if (endpoint === 'terminal/write' && this.guardrail) {
+      const command = typeof args.data === 'string' ? args.data : undefined
+      const verdict = this.guardrail.reviewSync({ kind: 'terminal-write', command })
+      if (!verdict.allow) throw new RpcError('PERMISSION_DENIED', `Guardrail blocked the typed command (${verdict.rule ?? 'rule'}): ${verdict.reason}`)
     }
     return { key, claim: this.claims.get(key) }
   }

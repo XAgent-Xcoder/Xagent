@@ -1,7 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams, type SpawnOptionsWithoutStdio } from 'node:child_process'
-import { isAbsolute } from 'node:path'
+import { delimiter, isAbsolute } from 'node:path'
 import { createHash } from 'node:crypto'
 import type { Options } from '@anthropic-ai/claude-agent-sdk'
+import { loginShellEnvironmentSync, refreshLoginShellEnvironment } from './login-shell-environment'
 
 export interface ManagedLaunchProfile { id: string; label: string; codexHome?: string; claudeConfigDir?: string }
 export interface ManagedLaunchSelection { profileId?: string }
@@ -15,6 +16,7 @@ export class ManagedLaunchRegistry {
       for (const home of [profile.codexHome, profile.claudeConfigDir]) if (home !== undefined && (!isAbsolute(home) || home.includes('\0'))) throw new Error('Profile path must be absolute.')
       this.profiles.set(profile.id, { ...profile })
     }
+    void refreshLoginShellEnvironment()
   }
   options(agent: string): Array<{ id: string; label: string }> {
     return [...this.profiles.values()].filter(profile => profile.id === 'host' || (agent === 'codex' ? profile.codexHome : profile.claudeConfigDir)).map(({ id, label }) => ({ id, label }))
@@ -35,7 +37,11 @@ export class ManagedLaunchPlan {
     this.ownerFingerprint = createHash('sha256').update(JSON.stringify({ profileId: profile.id, agent, cwd, home: agent === 'codex' ? profile.codexHome : profile.claudeConfigDir })).digest('hex')
   }
   environment(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-    const env = { ...base }
+    // Host profile inherits the login shell's exports (proxy endpoint/auth, PATH) that a GUI process.env lacks.
+    const inherited = this.profile.id === 'host' ? loginShellEnvironmentSync() : {}
+    const env = { ...inherited, ...base }
+    const pathSegments = [inherited.PATH, base.PATH].flatMap(value => value?.split(delimiter) ?? [])
+    if (pathSegments.length) env.PATH = [...new Set(pathSegments.filter(Boolean))].join(delimiter)
     if (this.profile.id !== 'host') {
       for (const key of this.agent === 'codex' ? ['OPENAI_API_KEY','OPENAI_BASE_URL','CODEX_API_KEY','CODEX_HOME'] : ['ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN','ANTHROPIC_BASE_URL','CLAUDE_CODE_OAUTH_TOKEN','CLAUDE_CONFIG_DIR']) delete env[key]
       env[this.agent === 'codex' ? 'CODEX_HOME' : 'CLAUDE_CONFIG_DIR'] = this.agent === 'codex' ? this.profile.codexHome : this.profile.claudeConfigDir

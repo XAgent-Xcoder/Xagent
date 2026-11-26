@@ -108,6 +108,10 @@ export class HostServerConnection {
   private controlFrameLimits: ControlFrameByteLimits = {}
   private heartbeatIntervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS
   private webRtcNegotiateTimeoutMs = DEFAULT_WEBRTC_NEGOTIATE_TIMEOUT_MS
+  /** Consecutive failed connect attempts; reset on a successful hello. Drives exponential backoff. */
+  private connectAttempt = 0
+  /** When the last control connection was successfully established (hello acked). */
+  private lastConnectedAt?: number
 
   constructor(
     private readonly config: ResolvedConfig,
@@ -230,10 +234,6 @@ export class HostServerConnection {
         continue
       }
       if (!this.config.reconnect.enabled) return
-      // Every close, including the first, waits a full-jitter draw from
-      // [0, maxDelayMs]. A restarted Server therefore gets the whole fleet
-      // spread over the widest window, and an ordinary network drop cannot
-      // turn into a tight reconnect loop either.
       await this.waitBeforeRetry()
       if (this.reconnectRequested) {
         this.reconnectRequested = false
@@ -528,6 +528,8 @@ export class HostServerConnection {
             }
             this.online = true
             this.terminalError = undefined
+            this.connectAttempt = 0
+            this.lastConnectedAt = Date.now()
             this.logger.info('server control connection online', {
               serverVersion: payload.serverVersion,
               connectionSessionId: shortId(payload.connectionSessionId),
@@ -1327,12 +1329,28 @@ export class HostServerConnection {
   }
 
   private waitBeforeRetry(): Promise<void> {
-    // Full jitter over the configured maximum (AWS "full jitter"): every
-    // retry draws uniformly from [0, maxDelayMs], so the fleet spreads out
-    // even when the Server restarts. `reconnect.initialDelayMs` and
-    // `reconnect.jitter` remain accepted configuration but no longer shape
-    // the delay; only `maxDelayMs` bounds it.
-    const delay = Math.round(Math.random() * this.config.reconnect.maxDelayMs)
+    // Exponential backoff with half-ceiling jitter, ported from Linger's
+    // daemon/connection.go defaultRetryDelay: ceiling = 1s * 2^attempt (capped),
+    // delay = ceiling/2 + random(ceiling/2). This bounds the per-attempt wait
+    // while spreading the fleet so a restarted Server is not thundering-herded.
+    //
+    // Fast redial window: if the previous connection was established recently
+    // (within FAST_REDIAL_WINDOW_MS), the Server likely just restarted, so we
+    // redial quickly instead of waiting out a long backoff. Mirrors Linger's
+    // gatewayRestartRedialWindow.
+    const FAST_REDIAL_WINDOW_MS = 2 * 60_000
+    const FAST_REDIAL_MAX_DELAY_MS = 1_000
+    const recentlyConnected = this.lastConnectedAt !== undefined && Date.now() - this.lastConnectedAt < FAST_REDIAL_WINDOW_MS
+    const attempt = Math.min(this.connectAttempt, 5)
+    const ceiling = Math.min(1_000 * (1 << attempt), this.config.reconnect.maxDelayMs)
+    let delay: number
+    if (recentlyConnected && this.connectAttempt <= 1) {
+      // Quick redial after a fresh drop / server restart.
+      delay = Math.round(Math.random() * FAST_REDIAL_MAX_DELAY_MS)
+    } else {
+      delay = Math.round(ceiling / 2 + Math.random() * (ceiling / 2 + 1))
+    }
+    this.connectAttempt = Math.min(this.connectAttempt + 1, 6)
     return new Promise(resolve => {
       const timer = setTimeout(() => { this.retryWake = undefined; resolve() }, delay)
       this.retryWake = () => { clearTimeout(timer); resolve() }

@@ -6,7 +6,11 @@
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __getProtoOf = Object.getPrototypeOf, __hasOwnProp = Object.prototype.hasOwnProperty;
   var __commonJS = (cb, mod) => function() {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    try {
+      return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    } catch (e) {
+      throw mod = 0, e;
+    }
   };
   var __copyProps = (to, from, except, desc) => {
     if (from && typeof from == "object" || typeof from == "function")
@@ -1619,7 +1623,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
     }
   });
 
-  // packages/plugin/src/client/managed-model-directory.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/managed-model-directory.ts
   var record = (value) => value && typeof value == "object" ? value : {}, ManagedModelDirectory = class {
     constructor(sessionId, agentId, call, projection) {
       this.sessionId = sessionId;
@@ -1628,6 +1632,10 @@ Minimum version required to store current data is: ` + bestVersion + `.
       this.projection = projection;
       this.unsubscribe = projection.subscribe(() => this.sync()), this.sync();
     }
+    sessionId;
+    agentId;
+    call;
+    projection;
     state = { current: null, routable: null, groups: [], failures: [], status: "idle", pending: null, error: null };
     listeners = /* @__PURE__ */ new Set();
     flight;
@@ -1704,7 +1712,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
     };
   }
 
-  // packages/plugin/src/client/chat-actions.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/chat-actions.ts
   function createChatActions(React, call, chinese) {
     return function({ sessionId }) {
       let [state, setState] = React.useState(void 0), [answers, setAnswers] = React.useState({}), [error, setError] = React.useState(""), [busy, setBusy] = React.useState(!1), [open, setOpen] = React.useState(!1), flight = React.useRef(!1), activeId = React.useRef(sessionId);
@@ -1789,11 +1797,28 @@ Minimum version required to store current data is: ` + bestVersion + `.
     };
   }
 
-  // packages/plugin/src/client/icons.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/icons.ts
   var deepSeekWorkspaceIcon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAACVBMVEUAAADy8vXx8fUsA3vyAAAAAXRSTlMAQObYZgAAAOxJREFUWMPtlsEOwyAMQxP+/6OnTZMGxHGcot3wDYgfhkJbs6urprzveGtu9d1NgEdto8w93GuA7zPS2RFg7ynsCOAokbtAmLr2YaeKgJ6fxpT8jCAC0qSqPyNoO5DXdvyouj4ClFAdYaDxK09uiBDCIYBf6CxLesnR0uF2pG+JmhCqrUb0AOvjjoQaYDTCEAAgMg5grhAeAQIB+/M15IcKlnUIp4CkTCd0AKb4zVsRSJVGYEVzT0agK107IMGMEurvromEpaX4wzk/IKw378kq4LafED6Oowxfk7AP2q8W16EdM3p29Eyvrv6vF0WIBfBziKyCAAAAAElFTkSuQmCC", gptWorkspaceIcon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAclBMVEX////v7+++wMf////s7O3k5OTExcrX2Ny6vMTv8PPW19yXmqRqboJmaHd3eoaqrLPs7fGMjpfb3eKlpq1eYXOxs7pWWWd+gY5HSVdRVGVub3k+QU74+Pg4OkcvMT1ISlUoKjUiIy4fICueoKkaGyUSFB21Bp+qAAAAAXRSTlMAQObYZgAABChJREFUWMPtl916qjoQhlsdEwIECEgMYCBxx/u/xT1DrFUL1LO1DtY8LSLJvPnmB4gfH//sr7TPDfvdebf/xXZbkE/4zZ0MVhGHd9zJDsv+7F3//Z69tT5wljAu3tXw+TIlzXKJlhflYmJ+5uF5WpWhb54X+C/zZCmT2wJA4dJZwus0UYjIGqWyMhVbEp4yKNRRqlv0opW5PJLJ4rFJXvP4JKDRMqturBZjkMVJFYjR6iHQDQDI4+k2k51wZbWrqwp4mR/1CVYATyko9TFGxBUqL5IvMbXSWt0T8bkGgFLqgqZBI/Uxbx5UAxLaNcCNLBpttM7wbCc1pmJOpWAsDtey68UaQMyrFgb9uxLPjqg3+nGluyKN0XUdWw0BJ0NvTFFqgzpr9J+Dh4w0Ga1qkqBNswagxdRgFPAbgHRQG5jumGWyMxrTIaRRa4AzFs0YrNMXgI4MJWnsKYFhGNMnIh/mBOPsV8CZBFjN9w8ArowxnZzDr5IcvxTaKpxJCVsoI3SWysz1UM4AqQdzlCgho1IKrK+x1mKFzisANtgEU8E7GwHDgOqxe4w9tnM166wbaA2xBMBLrTWcAGYGdCiYVUJUrMCF+7l6gklrW1RwPi8ByjuActANqhKzVWoYrFGcCFzbDgNaBrTWpncFQMcI2DfWoAiDqRCiHcYM/ZdCEKkZqfR8spj4F0CiJjv2gHL6URNoCQDaYacL6O1oFDO2eQDUFP7AKdCRdC4CRDZaNifbjA41l/uYb/SZMAFNTBGzY7sG4J2jTsJgToOzIzXF3HZqBpSOAGduXbkGEKV1OqVGqRJpRxtvwbSw5IqAiUJItwBCOT9R32FCGo3nCkAN3t0UTBRC6zDONcBeOee9pr4T+ASbnDOdc5OmtREwEEB5w8Wqgt4bOV5c7Lt9iiK8zdP/IsBbutUGX4gNwEVCqd3FUt/xYnRWt7BvPBYQjwjAGXa3ASguHVAZ/WXKlA3eZDX1wRegFsr7E2wAlB9xFbx/7MV70kFT8aqNgLL3F8nFBmA3hrn/IJHjKJOK2oj1WI4Z4FzwN/81AOhgYD6v2xbIvaZIurLC9AfvB1WLTYAoXejF1xeBL5cpBIyEbmxkZymIXwDQh1BAfOrhI1lfwtgz8tozF5T4ttf3+32AyxC6klwAgw/YVTHpoK82xYt3wLP/Bw4AAI4D7/01TLKXBj9NEz2wEuGiKpoy68S/FwCLMQAZ3gXhihaCa25vQo6RyToOz9PE6wYjJgGi1YnqZX8qMIK+TDlnargGzSv4NvFjlwXf/nfLLMrAB4O/Xl3BH0d+RIASFgDA8IYMIXgr2+cBsbDdPSwAAHjSZFmb3txETCKIxc0uWwI8rxsLJcTiVndNwyMgKljbbNN2/zcEAja2+4RgIDYN2Bu/WtAOaEodnu2dnzz/7I/Y/w/LaEcX/MdfAAAAAElFTkSuQmCC";
 
-  // packages/plugin/src/client/managed-agent.ts
-  var record2 = (value) => typeof value == "object" && value !== null ? value : {}, claudeIcon = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g stroke="#D97757" stroke-width="2.2"><path d="M12 1v22M1 12h22M4.2 4.2l15.6 15.6M4.2 19.8L19.8 4.2M7.8 1.8l8.4 20.4M1.8 7.8l20.4 8.4M1.8 16.2l20.4-8.4M7.8 22.2l8.4-20.4"/></g></svg>');
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/managed-agent.ts
+  var record2 = (value) => typeof value == "object" && value !== null ? value : {}, claudeIcon = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g stroke="#D97757" stroke-width="2.2"><path d="M12 1v22M1 12h22M4.2 4.2l15.6 15.6M4.2 19.8L19.8 4.2M7.8 1.8l8.4 20.4M1.8 7.8l20.4 8.4M1.8 16.2l20.4-8.4M7.8 22.2l8.4-20.4"/></g></svg>'), refreshIcon = (React) => React.createElement(
+    "svg",
+    {
+      className: "xcodexManagedAgentReloadIcon",
+      viewBox: "0 0 16 16",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: 1.5,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      "aria-hidden": !0
+    },
+    React.createElement("path", { d: "M14.5 8A6.5 6.5 0 1 1 8 1.5c2.5 0 4.6 1.4 5.7 3.4" }),
+    React.createElement("path", { d: "M13.9 1.4v3.5h-3.5" })
+  ), spinner = (React) => React.createElement("span", { className: "xcodexManagedAgentSpinner", "aria-hidden": !0 });
+  function agentGlyph(React, id) {
+    return id === "codex" ? React.createElement("img", { className: "xcodexManagedAgentItemIcon", src: gptWorkspaceIcon, alt: "", width: 18, height: 18 }) : id === "claude" || id === "claude-code" ? React.createElement("img", { className: "xcodexManagedAgentItemIcon", src: claudeIcon, alt: "", width: 18, height: 18 }) : React.createElement("span", { className: "xcodexManagedAgentItemAvatar", "aria-hidden": !0 }, id.slice(0, 1).toUpperCase());
+  }
   function createManagedAgentUi(React, ctx) {
     let managedIds = /* @__PURE__ */ new Map(), catalogFlight, catalogListeners = /* @__PURE__ */ new Set(), refreshCatalog = () => {
       catalogFlight || (catalogFlight = ctx.call("managedAgent/catalog", {}).then((value) => {
@@ -1837,7 +1862,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
     }
     function NewSession({ wide }) {
       useSnapshots();
-      let [agents, setAgents] = React.useState([]), [expanded, setExpanded] = React.useState(!1), [busy, setBusy] = React.useState(!1), [error, setError] = React.useState(void 0), [attempt, setAttempt] = React.useState(void 0), [loading, setLoading] = React.useState(!0), [reload, setReload] = React.useState(0), [chosenWorkspace, setChosenWorkspace] = React.useState(void 0), [profiles, setProfiles] = React.useState({}), mounted = React.useRef(!1), creating = React.useRef(!1);
+      let [agents, setAgents] = React.useState([]), [expanded, setExpanded] = React.useState(!1), [busy, setBusy] = React.useState(!1), [error, setError] = React.useState(void 0), [attempt, setAttempt] = React.useState(void 0), [loading, setLoading] = React.useState(!0), [reload, setReload] = React.useState(0), [chosenWorkspace, setChosenWorkspace] = React.useState(void 0), [profiles, setProfiles] = React.useState({}), mounted = React.useRef(!1), creating = React.useRef(!1), rootRef = React.useRef(null);
       React.useEffect(() => (mounted.current = !0, () => {
         mounted.current = !1;
       }), []), React.useEffect(() => {
@@ -1859,7 +1884,17 @@ Minimum version required to store current data is: ` + bestVersion + `.
         }), () => {
           active = !1;
         };
-      }, [reload]);
+      }, [reload]), React.useEffect(() => {
+        if (!expanded) return;
+        let onDown = (event) => {
+          rootRef.current && !rootRef.current.contains(event.target) && setExpanded(!1);
+        }, onKey = (event) => {
+          event.key === "Escape" && setExpanded(!1);
+        };
+        return document.addEventListener("mousedown", onDown), document.addEventListener("keydown", onKey), () => {
+          document.removeEventListener("mousedown", onDown), document.removeEventListener("keydown", onKey);
+        };
+      }, [expanded]);
       let current = Object.values(ctx.sessions.list.getSnapshot().byId ?? {}).find((item) => (item.retainedBy?.mainView ?? 0) > 0), workspaces = ctx.workspaces.list.getSnapshot().items, workspace = chosenWorkspace ? workspaces.find((item) => item.workspaceId === chosenWorkspace) : workspaces.find((item) => current && item.sessionIds?.includes(current.id)) ?? (workspaces.length === 1 ? workspaces[0] : void 0), create = async (agentId) => {
         if (creating.current || !workspace || !ctx.workspaces.list.getSnapshot().items.some((item) => item.workspaceId === workspace.workspaceId)) return;
         creating.current = !0;
@@ -1875,54 +1910,99 @@ Minimum version required to store current data is: ` + bestVersion + `.
         } finally {
           creating.current = !1, mounted.current && setBusy(!1);
         }
-      };
+      }, workspacePath = workspace?.path ?? workspace?.title ?? workspace?.workspaceId;
       return React.createElement(
         "div",
-        { className: "xcodexManagedAgentCreate" },
-        React.createElement("button", { className: "xcodexManagedAgentButton", type: "button", "aria-expanded": expanded, disabled: busy, title: ctx.chinese ? "\u9009\u62E9 Agent \u5E76\u65B0\u5EFA\u5BF9\u8BDD" : "Choose an Agent and create a session", onClick: () => setExpanded((value) => !value) }, wide === !1 ? "+" : ctx.chinese ? "+ Agent \u5BF9\u8BDD" : "+ Agent session"),
+        { className: "xcodexManagedAgentCreate", ref: rootRef },
+        React.createElement("button", {
+          className: "xcodexManagedAgentButton",
+          type: "button",
+          "aria-expanded": expanded,
+          "aria-haspopup": "menu",
+          disabled: busy,
+          title: ctx.chinese ? "\u9009\u62E9 Agent \u5E76\u65B0\u5EFA\u5BF9\u8BDD" : "Choose an Agent and create a session",
+          onClick: () => setExpanded((value) => !value)
+        }, wide === !1 ? "+" : ctx.chinese ? "+ Agent \u5BF9\u8BDD" : "+ Agent session"),
         expanded ? React.createElement(
           "div",
-          { role: "group", className: "xcodexManagedAgentMenu" },
+          { role: "menu", className: "xcodexManagedAgentMenu" },
           React.createElement(
-            "label",
-            null,
-            ctx.chinese ? "\u5DE5\u4F5C\u533A" : "Workspace",
+            "div",
+            { className: "xcodexManagedAgentField" },
+            React.createElement("span", { className: "xcodexManagedAgentFieldLabel", id: "xcodexManagedAgentWorkspaceLabel" }, ctx.chinese ? "\u5DE5\u4F5C\u533A" : "Workspace"),
             React.createElement(
               "select",
               {
-                "aria-label": ctx.chinese ? "\u5DE5\u4F5C\u533A" : "Workspace",
+                className: "xcodexManagedAgentSelect",
+                "aria-labelledby": "xcodexManagedAgentWorkspaceLabel",
                 value: workspace?.workspaceId ?? "",
                 disabled: busy,
+                title: workspacePath,
                 onChange: (event) => setChosenWorkspace(event.target.value || void 0)
               },
               React.createElement("option", { value: "" }, ctx.chinese ? "\u8BF7\u9009\u62E9\u5DE5\u4F5C\u533A" : "Choose workspace"),
               ...workspaces.map((item) => React.createElement("option", { key: item.workspaceId, value: item.workspaceId }, item.path ?? item.title ?? item.workspaceId))
             )
           ),
-          loading ? React.createElement("div", { role: "status" }, ctx.chinese ? "\u6B63\u5728\u52A0\u8F7D Agent\u2026" : "Loading Agents\u2026") : null,
-          !loading && !agents.length && !error ? React.createElement("div", null, ctx.chinese ? "\u6CA1\u6709\u53EF\u7528 Agent\uFF0C\u8BF7\u68C0\u67E5\u63D2\u4EF6\u914D\u7F6E\u540E\u91CD\u8BD5" : "No Agents available. Check plugin configuration and retry.") : null,
+          loading ? React.createElement("div", { className: "xcodexManagedAgentStatus", role: "status" }, spinner(React), ctx.chinese ? "\u6B63\u5728\u52A0\u8F7D Agent\u2026" : "Loading Agents\u2026") : null,
+          !loading && !agents.length && !error ? React.createElement("div", { className: "xcodexManagedAgentEmpty" }, ctx.chinese ? "\u6CA1\u6709\u53EF\u7528 Agent\uFF0C\u8BF7\u68C0\u67E5\u63D2\u4EF6\u914D\u7F6E\u540E\u91CD\u8BD5" : "No Agents available. Check plugin configuration and retry.") : null,
           ...agents.filter((agent) => (agent.profiles?.length ?? 0) > 1).map((agent) => React.createElement(
-            "label",
-            { key: `profile:${agent.id}` },
-            `${agent.label} ${ctx.chinese ? "\u914D\u7F6E" : "profile"}`,
+            "div",
+            { className: "xcodexManagedAgentField", key: `profile:${agent.id}` },
+            React.createElement("span", { className: "xcodexManagedAgentFieldLabel" }, `${agent.label} ${ctx.chinese ? "\u914D\u7F6E" : "profile"}`),
             React.createElement(
               "select",
-              { value: profiles[agent.id] ?? "host", disabled: busy, onChange: (event) => setProfiles((previous) => ({ ...previous, [agent.id]: event.target.value })) },
+              {
+                className: "xcodexManagedAgentSelect",
+                value: profiles[agent.id] ?? "host",
+                disabled: busy,
+                onChange: (event) => setProfiles((previous) => ({ ...previous, [agent.id]: event.target.value }))
+              },
               ...agent.profiles.map((profile) => React.createElement("option", { key: profile.id, value: profile.id }, profile.id === "host" ? ctx.chinese ? "\u672C\u673A\u5F53\u524D\u914D\u7F6E" : "Computer configuration" : profile.label))
             )
           )),
-          ...agents.map((agent) => React.createElement("button", { className: "xcodexManagedAgentButton", key: agent.id, type: "button", disabled: busy || !workspace, onClick: () => {
-            create(agent.id);
-          } }, agent.label)),
-          React.createElement("button", { className: "xcodexManagedAgentButton", type: "button", disabled: busy || loading, onClick: () => setReload((value) => value + 1) }, ctx.chinese ? "\u91CD\u65B0\u52A0\u8F7D Agent" : "Reload Agents")
-        ) : null,
-        error ? React.createElement("div", { role: "alert" }, error) : null
+          agents.length ? React.createElement(
+            "div",
+            { className: "xcodexManagedAgentList" },
+            ...agents.map((agent) => {
+              let creatingThis = busy && attempt?.agentId === agent.id;
+              return React.createElement(
+                "button",
+                {
+                  className: "xcodexManagedAgentItem",
+                  key: agent.id,
+                  type: "button",
+                  role: "menuitem",
+                  disabled: busy || !workspace,
+                  title: workspace ? void 0 : ctx.chinese ? "\u8BF7\u5148\u9009\u62E9\u5DE5\u4F5C\u533A" : "Choose a workspace first",
+                  onClick: () => {
+                    create(agent.id);
+                  }
+                },
+                agentGlyph(React, agent.id),
+                React.createElement("span", { className: "xcodexManagedAgentItemLabel" }, agent.label),
+                creatingThis ? spinner(React) : React.createElement("span", { className: "xcodexManagedAgentItemHint", "aria-hidden": !0 }, "+")
+              );
+            })
+          ) : null,
+          error ? React.createElement("div", { className: "xcodexManagedAgentError", role: "alert" }, error) : null,
+          React.createElement(
+            "div",
+            { className: "xcodexManagedAgentFooter" },
+            React.createElement("button", {
+              className: "xcodexManagedAgentReload",
+              type: "button",
+              disabled: busy || loading,
+              onClick: () => setReload((value) => value + 1)
+            }, refreshIcon(React), ctx.chinese ? "\u91CD\u65B0\u52A0\u8F7D Agent" : "Reload Agents")
+          )
+        ) : null
       );
     }
     return { NewSession, SessionLogo };
   }
 
-  // packages/plugin/src/client/browser-login.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/browser-login.ts
   function createBrowserLogin(React) {
     return function(props) {
       let [flow, setFlow] = React.useState(void 0), [email, setEmail] = React.useState(""), [password, setPassword] = React.useState(""), [busy, setBusy] = React.useState(!1), [error, setError] = React.useState(void 0), run = React.useRef(0), prefix = props.hostOnly ? "host.browser." : "account.browser.", callbacks = React.useRef(props);
@@ -1948,9 +2028,13 @@ Minimum version required to store current data is: ` + bestVersion + `.
               return;
             }
           }
-          active && (timer = setTimeout(() => void poll(), delay));
+          active && (timer = setTimeout(() => {
+            poll();
+          }, delay));
         };
-        return timer = setTimeout(() => void poll(), 2e3), () => {
+        return timer = setTimeout(() => {
+          poll();
+        }, 2e3), () => {
           active = !1, clearTimeout(timer), finished || props.control(prefix + "cancel", { requestId: flow.requestId }).catch(() => {
           });
         };
@@ -2006,13 +2090,15 @@ Minimum version required to store current data is: ` + bestVersion + `.
           React.createElement("a", { href: flow.loginUrl, target: "_blank", rel: "noopener noreferrer" }, props.t("browserLoginOpen")),
           React.createElement("p", { role: "status" }, props.t("browserLoginWaiting")),
           React.createElement("button", { type: "button", onClick: () => setFlow(void 0) }, props.t("browserLoginCancel"))
-        ) : React.createElement("button", { type: "button", disabled: busy || props.disabled, onClick: () => void start() }, props.t(busy ? "signingIn" : "xcodexGoogleLogin")),
+        ) : React.createElement("button", { type: "button", disabled: busy || props.disabled, onClick: () => {
+          start();
+        } }, props.t(busy ? "signingIn" : "xcodexGoogleLogin")),
         error ? React.createElement("p", { role: "alert", className: "xcodexRemoteError" }, error) : null
       );
     };
   }
 
-  // packages/plugin/src/client/portal.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/portal.ts
   function renderBodyPortal(portal, children) {
     if (typeof portal != "function" || typeof document > "u" || document === null) return children;
     let body = document.body;
@@ -2024,7 +2110,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
     }
   }
 
-  // packages/plugin/src/client-locale.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client-locale.ts
   var localeNamespace = "xcodex-remote", en = {
     xcodexGoogleLogin: "Sign in with Google",
     xcodexInvalidLogin: "Email or password is incorrect. If you registered with Google, use Google sign-in or set a password on Xcodex.",
@@ -2746,7 +2832,7 @@ If a code was sent, recover the original submission without changing it.`,
     codexVirtualSessions: "Sessions"
   };
 
-  // packages/plugin/src/client/server-notice.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/server-notice.ts
   function createServerNotice(React) {
     return function(props) {
       let { offline, linked, expiresAt, t } = props, wasOffline = React.useRef(!1), hadLink = React.useRef(linked), [restored, setRestored] = React.useState(!1), [now, setNow] = React.useState(Date.now());
@@ -2773,7 +2859,7 @@ If a code was sent, recover the original submission without changing it.`,
     };
   }
 
-  // packages/plugin/src/client/presentation.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/presentation.ts
   var defaultPreferredTransports = ["lan", "p2p", "turn", "relay"];
   function normalizedPreferredTransports(value) {
     return value === void 0 || value.length === 0 ? [...defaultPreferredTransports] : [...value];
@@ -2904,7 +2990,7 @@ If a code was sent, recover the original submission without changing it.`,
     return account.replace(/^device:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i, "dsh-device:$1");
   }
 
-  // packages/plugin/src/client/header.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/header.ts
   function createRemoteSessionHeaderAction(React, portal) {
     let ServerNotice = createServerNotice(React);
     function RemoteSessionHeaderAction(props) {
@@ -3011,7 +3097,9 @@ If a code was sent, recover the original submission without changing it.`,
           t
         }),
         renderHostReference(),
-        React.createElement("button", { type: "button", className: "xcodexRemoteHeaderExitLink", disabled: busy, onClick: () => void exit() }, t("exitRemote")),
+        React.createElement("button", { type: "button", className: "xcodexRemoteHeaderExitLink", disabled: busy, onClick: () => {
+          exit();
+        } }, t("exitRemote")),
         !routeOpen || !networkOnline ? null : renderBodyPortal(portal, React.createElement("div", {
           className: "xcodexRemoteRouteBackdrop",
           role: "presentation",
@@ -3139,7 +3227,7 @@ If a code was sent, recover the original submission without changing it.`,
     };
   }
 
-  // packages/plugin/src/client/control-result.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/control-result.ts
   function unwrapControlResult(result, fallbackMessage) {
     if (!result.ok) {
       let remoteCode = result.error?.details?.remoteCode;
@@ -3151,7 +3239,7 @@ If a code was sent, recover the original submission without changing it.`,
     return result.value;
   }
 
-  // packages/plugin/src/client/navigation.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/navigation.ts
   var pendingWorkspaceSelectionKey = "xcodex-remote:pending-workspace-selection";
   function storedWorkspaceSelection() {
     let raw = window.sessionStorage.getItem(pendingWorkspaceSelectionKey);
@@ -3171,7 +3259,7 @@ If a code was sent, recover the original submission without changing it.`,
     return snapshot.baselinesReady === !0 || snapshot.phase === "ready";
   }
 
-  // packages/plugin/src/client/progress.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/progress.ts
   function createRemoteProgressView(React) {
     function RemoteProgressView(props) {
       let progress = props.progress;
@@ -3245,7 +3333,7 @@ If a code was sent, recover the original submission without changing it.`,
     }
   }
 
-  // packages/plugin/src/client/pairing.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/pairing.ts
   var import_qrcode = __toESM(require_browser(), 1);
   function createHostPairingPanel(React) {
     return function(props) {
@@ -3262,7 +3350,9 @@ If a code was sent, recover the original submission without changing it.`,
               apply(await props.control("host.pairing.status"));
             } catch {
             }
-          mounted.current && (timer = setTimeout(() => void poll(), 2500));
+          mounted.current && (timer = setTimeout(() => {
+            poll();
+          }, 2500));
         };
         return poll(), () => {
           mounted.current = !1, timer && clearTimeout(timer);
@@ -3322,7 +3412,9 @@ If a code was sent, recover the original submission without changing it.`,
             type: "button",
             className: "xcodexRemoteDiscard",
             disabled: busy || props.disabled,
-            onClick: () => void run("cancel")
+            onClick: () => {
+              run("cancel");
+            }
           }, t(busy ? "pairingBusy" : "pairingCancel"))
         ),
         view?.mobile === void 0 ? null : React.createElement("p", { className: "xcodexRemotePairingIdentity" }, React.createElement("strong", null, view.mobile.name), React.createElement("br"), React.createElement("code", null, view.mobile.fingerprint)),
@@ -3342,7 +3434,9 @@ If a code was sent, recover the original submission without changing it.`,
             onChange: (event) => setCode(event.target.value.replace(/[^0-9]/g, "").slice(0, 8))
           })),
           React.createElement("p", { className: "xcodexRemotePairingCodeWarning" }, t("pairingWarning")),
-          React.createElement("div", { className: "xcodexRemotePairingCodeActions" }, React.createElement("button", { type: "submit", className: "xcodexRemoteSave", disabled: busy || props.disabled || !/^[0-9]{8}$/.test(code) }, t("pairingConfirm")), React.createElement("button", { type: "button", className: "xcodexRemoteDiscard", disabled: busy || props.disabled, onClick: () => void run("cancel") }, t("pairingCancel")))
+          React.createElement("div", { className: "xcodexRemotePairingCodeActions" }, React.createElement("button", { type: "submit", className: "xcodexRemoteSave", disabled: busy || props.disabled || !/^[0-9]{8}$/.test(code) }, t("pairingConfirm")), React.createElement("button", { type: "button", className: "xcodexRemoteDiscard", disabled: busy || props.disabled, onClick: () => {
+            run("cancel");
+          } }, t("pairingCancel")))
         ),
         error === void 0 ? null : React.createElement("p", { role: "alert", className: "xcodexRemoteError" }, error),
         React.createElement(
@@ -3356,19 +3450,23 @@ If a code was sent, recover the original submission without changing it.`,
               event.nativeEvent?.isTrusted && run("confirm", !0);
             }
           }, t("pairingRetry")) : null,
-          active && retry ? React.createElement("button", { type: "button", className: "xcodexRemoteDiscard", disabled: busy || props.disabled, onClick: () => void run("cancel") }, t("pairingCancel")) : null,
+          active && retry ? React.createElement("button", { type: "button", className: "xcodexRemoteDiscard", disabled: busy || props.disabled, onClick: () => {
+            run("cancel");
+          } }, t("pairingCancel")) : null,
           active || view?.state === "completed" ? null : React.createElement("button", {
             type: "button",
             className: "xcodexRemoteSave",
             disabled: busy || props.disabled || !props.serverUrl,
-            onClick: () => void run(active ? "cancel" : "start")
+            onClick: () => {
+              run(active ? "cancel" : "start");
+            }
           }, t(busy ? "pairingBusy" : active ? "pairingCancel" : "pairingStart"))
         )
       );
     };
   }
 
-  // packages/plugin/src/client/settings.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/settings.ts
   var import_qrcode2 = __toESM(require_browser(), 1);
   var sidebarEntryChoices = [
     { value: "standard", label: "sidebarEntryStandard" },
@@ -3634,7 +3732,9 @@ If a code was sent, recover the original submission without changing it.`,
             checked: debugLogging,
             disabled: busy || debugBusy || !writable,
             "aria-label": t("debugLogging"),
-            onChange: (event) => void setDebug(event.target.checked)
+            onChange: (event) => {
+              setDebug(event.target.checked);
+            }
           })
         ),
         React.createElement(
@@ -3652,7 +3752,9 @@ If a code was sent, recover the original submission without changing it.`,
             checked: terminalEnabled,
             disabled: busy || terminalBusy || !writable,
             "aria-label": t("terminalRemote"),
-            onChange: (event) => void setTerminalRemote(event.target.checked)
+            onChange: (event) => {
+              setTerminalRemote(event.target.checked);
+            }
           })
         ),
         React.createElement(
@@ -3716,7 +3818,9 @@ If a code was sent, recover the original submission without changing it.`,
           type: "button",
           className: "xcodexRemoteDiscard",
           disabled: busy || resetBusy || !writable || resetDisabledByStartupState,
-          onClick: () => void resetIdentity()
+          onClick: () => {
+            resetIdentity();
+          }
         }, t(resetBusy ? "resettingAction" : "resetIdentity"))
       ), startupErrorBanner = settingsView?.startupError !== void 0 ? React.createElement(
         "div",
@@ -3726,7 +3830,9 @@ If a code was sent, recover the original submission without changing it.`,
           type: "button",
           className: "xcodexRemoteDiscard",
           disabled: busy || resetBusy || retryStartupBusy,
-          onClick: () => void retryStartup()
+          onClick: () => {
+            retryStartup();
+          }
         }, t("retryStartup"))
       ) : null, sidebarEntrySetting = React.createElement(
         "div",
@@ -3748,7 +3854,9 @@ If a code was sent, recover the original submission without changing it.`,
           "aria-checked": sidebarEntry === choice.value,
           className: sidebarEntry === choice.value ? "isSelected" : void 0,
           disabled: sidebarEntryBusy || !writable,
-          onClick: () => void setSidebarEntryStyle(choice.value)
+          onClick: () => {
+            setSidebarEntryStyle(choice.value);
+          }
         }, t(choice.label))))
       ), acpSetting = React.createElement(
         "details",
@@ -3805,9 +3913,11 @@ If a code was sent, recover the original submission without changing it.`,
               checked: settingsView?.config.acp?.enabled === !0 && item.enabled && acpAvailability[item.id] === !0,
               "aria-label": item.id,
               disabled: busy || !writable || acpChecking[item.id] === !0 || acpAvailability[item.id] !== !0,
-              onChange: (event) => void props.control("settings.acp.set", { backend: item.id, enabled: event.target.checked }).then((view) => {
-                applyView(view), setAcpBackends((view.config.acp?.backends ?? []).map((v) => ({ id: v.id, enabled: v.enabled !== !1 })));
-              }).catch((reason) => setError(messageOf(reason, t)))
+              onChange: (event) => {
+                props.control("settings.acp.set", { backend: item.id, enabled: event.target.checked }).then((view) => {
+                  applyView(view), setAcpBackends((view.config.acp?.backends ?? []).map((v) => ({ id: v.id, enabled: v.enabled !== !1 })));
+                }).catch((reason) => setError(messageOf(reason, t)));
+              }
             })
           ))
         )
@@ -4011,7 +4121,9 @@ If a code was sent, recover the original submission without changing it.`,
                 disabled: busy,
                 "aria-label": t("allowControlCurrentDevice"),
                 checked: hostStatus?.authorized === !0,
-                onChange: (event) => void setCurrentDeviceControl(event.target.checked)
+                onChange: (event) => {
+                  setCurrentDeviceControl(event.target.checked);
+                }
               })
             ),
             React.createElement(
@@ -4036,7 +4148,9 @@ If a code was sent, recover the original submission without changing it.`,
                 type: "button",
                 className: "xcodexRemoteReconnect",
                 disabled: reconnectBusy || hostStatus?.configured === !1,
-                onClick: () => void reconnectHost()
+                onClick: () => {
+                  reconnectHost();
+                }
               }, t(reconnectBusy ? "reconnectingAction" : "reconnect"))
             ),
             hostStatus?.authorized && !hostStatus.accountRequired ? React.createElement(ServerNotice, {
@@ -4058,7 +4172,9 @@ If a code was sent, recover the original submission without changing it.`,
                 type: "button",
                 className: "xcodexRemoteDiscard",
                 disabled: busy || !writable,
-                onClick: () => void logout()
+                onClick: () => {
+                  logout();
+                }
               }, t(busy ? "signingOut" : "signOut"))
             ),
             inlineSignIn
@@ -4118,11 +4234,16 @@ If a code was sent, recover the original submission without changing it.`,
     return RemotePluginOptions;
   }
 
-  // packages/plugin/src/client/shell.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/shell.ts
   function installStyle(clientModuleId2) {
     let style = document.createElement("style");
     return style.dataset.plugin = clientModuleId2, style.dataset.pluginCss = "xcodex-remote", style.textContent = [
-      ".xcodexManagedAgentCreate{position:relative}.xcodexManagedAgentButton{display:flex;align-items:center;min-height:32px;padding:6px 10px;border:0;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;text-align:left;cursor:pointer}.xcodexManagedAgentButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.xcodexManagedAgentButton:disabled{opacity:.45;cursor:default}.xcodexManagedAgentButton:focus-visible{outline:2px solid var(--dsw-alias-label-secondary);outline-offset:2px}.xcodexManagedAgentMenu{position:absolute;bottom:calc(100% + 6px);left:0;min-width:200px;max-width:min(320px,calc(100vw - 24px));max-height:70vh;overflow:auto;padding:4px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-2,#252525);box-shadow:0 4px 16px #0002;z-index:20}.xcodexManagedAgentMenu .xcodexManagedAgentButton{width:100%}.xcodexManagedAgentMenu label{display:block;padding:6px;font-size:12px}.xcodexManagedAgentMenu select{display:block;width:100%;max-width:260px;margin-top:4px;color:inherit;background:var(--dsw-alias-bg-layer-2,#252525)}",
+      ".xcodexManagedAgentCreate{position:relative}.xcodexManagedAgentButton{display:flex;align-items:center;gap:6px;min-height:32px;padding:6px 10px;border:0;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;text-align:left;cursor:pointer}.xcodexManagedAgentButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.xcodexManagedAgentButton:disabled{opacity:.45;cursor:default}.xcodexManagedAgentButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}",
+      ".xcodexManagedAgentMenu{position:absolute;bottom:calc(100% + 8px);left:0;width:264px;max-width:calc(100vw - 24px);max-height:min(420px,70vh);overflow:auto;padding:6px;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-layer-2,#252525);box-shadow:0 10px 28px rgba(0,0,0,.28);z-index:20;animation:xcodexManagedAgentMenuIn .16s cubic-bezier(.25,1,.5,1)}@keyframes xcodexManagedAgentMenuIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){.xcodexManagedAgentMenu{animation:none}}",
+      '.xcodexManagedAgentField{padding:6px 6px 8px}.xcodexManagedAgentFieldLabel{display:block;margin-bottom:5px;color:var(--dsw-alias-label-tertiary);font-size:11px;font-weight:500;line-height:1.4}.xcodexManagedAgentSelect{appearance:none;-webkit-appearance:none;box-sizing:border-box;display:block;width:100%;height:32px;padding:0 28px 0 10px;border:.5px solid var(--dsw-alias-border-l4);border-radius:8px;background-color:var(--dsw-alias-bg-layer-3);background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%2712%27 viewBox=%270 0 12 12%27%3E%3Cpath d=%27M2.5 4.5L6 8l3.5-3.5%27 fill=%27none%27 stroke=%27%23888%27 stroke-width=%271.5%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;background-size:12px;color:var(--dsw-alias-label-primary);font:inherit;font-size:12.5px;line-height:30px;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;cursor:pointer;transition:border-color .15s}.xcodexManagedAgentSelect:hover:not(:disabled){border-color:var(--dsw-alias-label-dimmed)}.xcodexManagedAgentSelect:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.xcodexManagedAgentSelect:disabled{opacity:.5;cursor:default}',
+      ".xcodexManagedAgentList{display:flex;flex-direction:column;gap:2px;padding:2px 0}.xcodexManagedAgentItem{display:flex;align-items:center;gap:10px;width:100%;min-height:38px;padding:7px 10px;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;font-weight:500;text-align:left;cursor:pointer;transition:background .12s}.xcodexManagedAgentItem:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.xcodexManagedAgentItem:disabled{opacity:.45;cursor:default}.xcodexManagedAgentItem:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.xcodexManagedAgentItemIcon{width:18px;height:18px;flex:0 0 18px;border-radius:4px;object-fit:contain}.xcodexManagedAgentItemAvatar{width:18px;height:18px;flex:0 0 18px;display:inline-flex;align-items:center;justify-content:center;border-radius:5px;background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-secondary);font-size:11px;font-weight:600}.xcodexManagedAgentItemLabel{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.xcodexManagedAgentItemHint{flex:0 0 auto;color:var(--dsw-alias-label-tertiary);font-size:15px;line-height:1;opacity:0;transition:opacity .12s}.xcodexManagedAgentItem:hover:not(:disabled) .xcodexManagedAgentItemHint{opacity:1}",
+      ".xcodexManagedAgentSpinner{width:14px;height:14px;flex:0 0 14px;border:2px solid var(--dsw-alias-border-l2);border-top-color:var(--dsw-alias-brand-primary);border-radius:50%;animation:xcodexManagedAgentSpin .7s linear infinite}@keyframes xcodexManagedAgentSpin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.xcodexManagedAgentSpinner{animation:none}}.xcodexManagedAgentStatus{display:flex;align-items:center;gap:8px;padding:10px;color:var(--dsw-alias-label-secondary);font-size:12px}.xcodexManagedAgentEmpty{padding:10px;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.5}.xcodexManagedAgentError{margin:4px 6px 6px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 10%,transparent);color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:1.45;overflow-wrap:anywhere}",
+      ".xcodexManagedAgentFooter{margin-top:4px;padding-top:4px;border-top:1px solid var(--dsw-alias-border-l2)}.xcodexManagedAgentReload{display:flex;align-items:center;gap:8px;width:100%;min-height:32px;padding:6px 10px;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;text-align:left;cursor:pointer}.xcodexManagedAgentReload:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.xcodexManagedAgentReload:disabled{opacity:.45;cursor:default}.xcodexManagedAgentReload:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}.xcodexManagedAgentReloadIcon{width:13px;height:13px;flex:0 0 13px}",
       ".xcodexRemoteConnectedPanelHeader{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;margin-bottom:6px}.xcodexRemoteConnectedPanelHeader .xcodexRemoteConnectedPanelTitle{margin-bottom:0}",
       ".xcodexRemoteHostNameLine{display:flex;align-items:center;flex-wrap:wrap;gap:8px}",
       ".xcodexRemoteServerNotice{font-size:12px;line-height:1.5;white-space:normal;overflow-wrap:anywhere}.xcodexRemoteServerNotice.isWarning{color:var(--dsw-alias-state-warning-primary,#946200)}.xcodexRemoteServerNotice.isError{color:var(--dsw-alias-state-error-primary)}.xcodexRemoteServerNotice.isRestored{color:var(--dsw-alias-state-success-primary)}",
@@ -4267,10 +4388,10 @@ If a code was sent, recover the original submission without changing it.`,
     };
   }
 
-  // packages/plugin/src/client/workspaces.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/workspaces.ts
   var import_qrcode3 = __toESM(require_browser(), 1);
 
-  // packages/plugin/src/version-compare.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/version-compare.ts
   var VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/;
   function parseVersion(value) {
     let match = VERSION_PATTERN.exec(value.trim().replace(/^v/, ""));
@@ -4303,7 +4424,7 @@ If a code was sent, recover the original submission without changing it.`,
     return comparePrerelease(parsedLeft.prerelease, parsedRight.prerelease);
   }
 
-  // packages/plugin/src/client/workspaces.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client/workspaces.ts
   function createRemoteWorkspaceAction(React, portal) {
     let BrowserLogin = createBrowserLogin(React), ServerNotice = createServerNotice(React), HostPairingPanel = createHostPairingPanel(React), RemoteProgressView = createRemoteProgressView(React);
     function RemoteAccountEntry(props) {
@@ -4766,7 +4887,9 @@ If a code was sent, recover the original submission without changing it.`,
           ...remoteActive && props.wide && !reauth ? {} : {
             type: "button",
             disabled: remoteActive && busy,
-            onClick: () => void (remoteActive && !reauth ? openLocalWorkspaces() : show())
+            onClick: () => {
+              remoteActive && !reauth ? openLocalWorkspaces() : show();
+            }
           },
           className: "xcodexRemoteModeButton",
           title: props.wide ? remoteLabel : remoteActionLabel,
@@ -4776,7 +4899,9 @@ If a code was sent, recover the original submission without changing it.`,
           type: "button",
           className: "xcodexRemoteExitLink",
           disabled: busy,
-          onClick: () => void openLocalWorkspaces()
+          onClick: () => {
+            openLocalWorkspaces();
+          }
         }, t("exitRemote")) : null
       ), accountEntry = React.createElement(
         "div",
@@ -4787,7 +4912,9 @@ If a code was sent, recover the original submission without changing it.`,
           disabled: remoteActive && busy,
           title: remoteActionLabel,
           "aria-label": remoteActionLabel,
-          onClick: () => void (remoteActive && !reauth ? openLocalWorkspaces() : show())
+          onClick: () => {
+            remoteActive && !reauth ? openLocalWorkspaces() : show();
+          }
         }, computerIcon, updateDot)
       ), compact = sidebarEntry === "compact" && props.wide && props.portal !== void 0;
       return React.createElement(
@@ -4845,7 +4972,9 @@ If a code was sent, recover the original submission without changing it.`,
                 disabled: busy,
                 title: t("refreshRemote"),
                 "aria-label": t("refreshRemote"),
-                onClick: () => void refreshRemote()
+                onClick: () => {
+                  refreshRemote();
+                }
               }, t("refreshRemoteShort")),
               React.createElement("button", { type: "button", className: "xcodexRemotePageClose", onClick: () => setOpen(!1), "aria-label": t("close") }, "\xD7")
             )
@@ -4857,7 +4986,9 @@ If a code was sent, recover the original submission without changing it.`,
               type: "button",
               className: "xcodexRemoteLocalLink",
               disabled: busy,
-              onClick: () => void openLocalWorkspaces()
+              onClick: () => {
+                openLocalWorkspaces();
+              }
             }, t("openLocalWorkspaces")) : null,
             React.createElement(
               React.Fragment,
@@ -4980,7 +5111,9 @@ If a code was sent, recover the original submission without changing it.`,
                           disabled: busy,
                           "aria-label": t("allowControlDevice"),
                           checked: status.host?.authorized === !0,
-                          onChange: (event) => void setCurrentDeviceControl(event.target.checked)
+                          onChange: (event) => {
+                            setCurrentDeviceControl(event.target.checked);
+                          }
                         })
                       ) : null,
                       connectedMenu
@@ -4996,7 +5129,9 @@ If a code was sent, recover the original submission without changing it.`,
                       key: device.deviceId,
                       disabled: busy || serverUnavailable || !device.online,
                       "aria-current": connectingHost?.deviceId === device.deviceId ? "true" : void 0,
-                      onClick: () => void selectHost(device)
+                      onClick: () => {
+                        selectHost(device);
+                      }
                     },
                     React.createElement(
                       "span",
@@ -5049,7 +5184,9 @@ If a code was sent, recover the original submission without changing it.`,
                       type: "button",
                       className: "xcodexRemoteAccountExit",
                       disabled: busy,
-                      onClick: () => void logoutRemote()
+                      onClick: () => {
+                        logoutRemote();
+                      }
                     }, t("exitRemoteAccount"))
                   )
                 ) : null : React.createElement(
@@ -5091,14 +5228,18 @@ If a code was sent, recover the original submission without changing it.`,
                           type: "button",
                           key: crumb.path,
                           disabled: busy || crumb.path === directory.path,
-                          onClick: () => void browseDirectory(crumb.path)
+                          onClick: () => {
+                            browseDirectory(crumb.path);
+                          }
                         }, crumb.path === directory.home ? "\u2302" : crumb.name))
                       ),
                       React.createElement("div", { className: "xcodexRemoteFolderList" }, directory.entries.filter((entry2) => !entry2.hidden).length === 0 ? React.createElement("p", null, t("emptyDirectory")) : directory.entries.filter((entry2) => !entry2.hidden).map((entry2) => React.createElement("button", {
                         type: "button",
                         key: entry2.path,
                         disabled: busy,
-                        onClick: () => void browseDirectory(entry2.path)
+                        onClick: () => {
+                          browseDirectory(entry2.path);
+                        }
                       }, React.createElement("span", { "aria-hidden": !0 }, "\u25B1"), React.createElement("span", null, entry2.name)))),
                       directory.truncated ? React.createElement("small", null, t("directoryTruncated")) : null
                     )
@@ -5122,7 +5263,9 @@ If a code was sent, recover the original submission without changing it.`,
                             onClick: () => {
                               setWorkspaceBackend("harness"), setCodexWorkspaceId(void 0), setCursorWorkspaceId(void 0), setPath(workspace.path);
                             },
-                            onDoubleClick: () => void openWorkspace({ backend: "harness", path: workspace.path })
+                            onDoubleClick: () => {
+                              openWorkspace({ backend: "harness", path: workspace.path });
+                            }
                           },
                           React.createElement("img", { className: "xcodexRemoteWorkspaceIcon", src: deepSeekWorkspaceIcon, alt: "", "aria-hidden": !0 }),
                           React.createElement("span", null, workspace.title),
@@ -5181,11 +5324,13 @@ If a code was sent, recover the original submission without changing it.`,
                           onClick: () => {
                             setWorkspaceBackend("codex"), setCodexWorkspaceId(workspace.workspaceId), setCursorWorkspaceId(void 0), setPath(workspace.path);
                           },
-                          onDoubleClick: () => void openWorkspace({
-                            backend: "codex",
-                            path: workspace.path,
-                            workspaceId: workspace.workspaceId
-                          })
+                          onDoubleClick: () => {
+                            openWorkspace({
+                              backend: "codex",
+                              path: workspace.path,
+                              workspaceId: workspace.workspaceId
+                            });
+                          }
                         },
                         React.createElement("img", { className: "xcodexRemoteWorkspaceIcon isGpt", src: gptWorkspaceIcon, alt: "", "aria-hidden": !0 }),
                         React.createElement("span", null, workspace.title),
@@ -5243,11 +5388,13 @@ If a code was sent, recover the original submission without changing it.`,
                           onClick: () => {
                             setWorkspaceBackend("cursor"), setCursorWorkspaceId(workspace.workspaceId), setCodexWorkspaceId(void 0), setAntigravityWorkspaceId(void 0), setPiWorkspaceId(void 0), setOpencodeWorkspaceId(void 0), setClaudeWorkspaceId(void 0), setHermesWorkspaceId(void 0), setPath(workspace.path);
                           },
-                          onDoubleClick: () => void openWorkspace({
-                            backend: "cursor",
-                            path: workspace.path,
-                            workspaceId: workspace.workspaceId
-                          })
+                          onDoubleClick: () => {
+                            openWorkspace({
+                              backend: "cursor",
+                              path: workspace.path,
+                              workspaceId: workspace.workspaceId
+                            });
+                          }
                         },
                         React.createElement("img", { className: "xcodexRemoteWorkspaceIcon", src: deepSeekWorkspaceIcon, alt: "", "aria-hidden": !0 }),
                         React.createElement("span", null, workspace.title),
@@ -5305,11 +5452,13 @@ If a code was sent, recover the original submission without changing it.`,
                           onClick: () => {
                             setWorkspaceBackend("antigravity"), setAntigravityWorkspaceId(workspace.workspaceId), setPiWorkspaceId(void 0), setOpencodeWorkspaceId(void 0), setClaudeWorkspaceId(void 0), setHermesWorkspaceId(void 0), setCodexWorkspaceId(void 0), setCursorWorkspaceId(void 0), setPath(workspace.path);
                           },
-                          onDoubleClick: () => void openWorkspace({
-                            backend: "antigravity",
-                            path: workspace.path,
-                            workspaceId: workspace.workspaceId
-                          })
+                          onDoubleClick: () => {
+                            openWorkspace({
+                              backend: "antigravity",
+                              path: workspace.path,
+                              workspaceId: workspace.workspaceId
+                            });
+                          }
                         },
                         React.createElement("img", { className: "xcodexRemoteWorkspaceIcon", src: deepSeekWorkspaceIcon, alt: "", "aria-hidden": !0 }),
                         React.createElement("span", null, workspace.title),
@@ -5367,11 +5516,13 @@ If a code was sent, recover the original submission without changing it.`,
                           onClick: () => {
                             setWorkspaceBackend("pi"), setPiWorkspaceId(workspace.workspaceId), setAntigravityWorkspaceId(void 0), setCodexWorkspaceId(void 0), setCursorWorkspaceId(void 0), setPath(workspace.path);
                           },
-                          onDoubleClick: () => void openWorkspace({
-                            backend: "pi",
-                            path: workspace.path,
-                            workspaceId: workspace.workspaceId
-                          })
+                          onDoubleClick: () => {
+                            openWorkspace({
+                              backend: "pi",
+                              path: workspace.path,
+                              workspaceId: workspace.workspaceId
+                            });
+                          }
                         },
                         React.createElement("img", { className: "xcodexRemoteWorkspaceIcon", src: deepSeekWorkspaceIcon, alt: "", "aria-hidden": !0 }),
                         React.createElement("span", null, workspace.title),
@@ -5425,11 +5576,13 @@ If a code was sent, recover the original submission without changing it.`,
                           onClick: () => {
                             setWorkspaceBackend("opencode"), setOpencodeWorkspaceId(workspace.workspaceId), setPiWorkspaceId(void 0), setClaudeWorkspaceId(void 0), setHermesWorkspaceId(void 0), setAntigravityWorkspaceId(void 0), setCodexWorkspaceId(void 0), setCursorWorkspaceId(void 0), setPath(workspace.path);
                           },
-                          onDoubleClick: () => void openWorkspace({
-                            backend: "opencode",
-                            path: workspace.path,
-                            workspaceId: workspace.workspaceId
-                          })
+                          onDoubleClick: () => {
+                            openWorkspace({
+                              backend: "opencode",
+                              path: workspace.path,
+                              workspaceId: workspace.workspaceId
+                            });
+                          }
                         },
                         React.createElement("img", { className: "xcodexRemoteWorkspaceIcon", src: deepSeekWorkspaceIcon, alt: "", "aria-hidden": !0 }),
                         React.createElement("span", null, workspace.title),
@@ -5483,11 +5636,13 @@ If a code was sent, recover the original submission without changing it.`,
                           onClick: () => {
                             setWorkspaceBackend("hermes"), setClaudeWorkspaceId(void 0), setHermesWorkspaceId(workspace.workspaceId), setPiWorkspaceId(void 0), setOpencodeWorkspaceId(void 0), setAntigravityWorkspaceId(void 0), setCodexWorkspaceId(void 0), setCursorWorkspaceId(void 0), setPath(workspace.path);
                           },
-                          onDoubleClick: () => void openWorkspace({
-                            backend: "hermes",
-                            path: workspace.path,
-                            workspaceId: workspace.workspaceId
-                          })
+                          onDoubleClick: () => {
+                            openWorkspace({
+                              backend: "hermes",
+                              path: workspace.path,
+                              workspaceId: workspace.workspaceId
+                            });
+                          }
                         },
                         React.createElement("img", { className: "xcodexRemoteWorkspaceIcon", src: deepSeekWorkspaceIcon, alt: "", "aria-hidden": !0 }),
                         React.createElement("span", null, workspace.title),
@@ -5541,11 +5696,13 @@ If a code was sent, recover the original submission without changing it.`,
                           onClick: () => {
                             setWorkspaceBackend("claude"), setClaudeWorkspaceId(workspace.workspaceId), setHermesWorkspaceId(void 0), setPiWorkspaceId(void 0), setOpencodeWorkspaceId(void 0), setAntigravityWorkspaceId(void 0), setCodexWorkspaceId(void 0), setCursorWorkspaceId(void 0), setPath(workspace.path);
                           },
-                          onDoubleClick: () => void openWorkspace({
-                            backend: "claude",
-                            path: workspace.path,
-                            workspaceId: workspace.workspaceId
-                          })
+                          onDoubleClick: () => {
+                            openWorkspace({
+                              backend: "claude",
+                              path: workspace.path,
+                              workspaceId: workspace.workspaceId
+                            });
+                          }
                         },
                         React.createElement("img", { className: "xcodexRemoteWorkspaceIcon", src: deepSeekWorkspaceIcon, alt: "", "aria-hidden": !0 }),
                         React.createElement("span", null, workspace.title),
@@ -5568,7 +5725,9 @@ If a code was sent, recover the original submission without changing it.`,
                     React.createElement("button", {
                       type: "button",
                       disabled: busy || path.trim() === "" || !addingWorkspace && workspaceBackend === "codex" && codexWorkspaceId === void 0 || !addingWorkspace && workspaceBackend === "cursor" && cursorWorkspaceId === void 0 && path === "" || !addingWorkspace && workspaceBackend === "antigravity" && antigravityWorkspaceId === void 0 && path === "" || !addingWorkspace && workspaceBackend === "pi" && piWorkspaceId === void 0 && path === "" || !addingWorkspace && workspaceBackend === "opencode" && opencodeWorkspaceId === void 0 && path === "" || !addingWorkspace && workspaceBackend === "claude" && claudeWorkspaceId === void 0 && path === "" || !addingWorkspace && workspaceBackend === "hermes" && hermesWorkspaceId === void 0 && path === "",
-                      onClick: () => void openWorkspace()
+                      onClick: () => {
+                        openWorkspace();
+                      }
                     }, t(busy ? "openingWorkspace" : addingWorkspace ? "confirmAddWorkspace" : "openWorkspace"))
                   )
                 )
@@ -5583,16 +5742,18 @@ If a code was sent, recover the original submission without changing it.`,
     return RemoteWorkspaceAction;
   }
 
-  // packages/plugin/src/control-route.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/control-route.ts
   var CONTROL_RPC_PREFIX = "/xcodex-remote", STATUS_STREAM_ENDPOINT = "status.events", STATUS_STREAM_PATH = `${CONTROL_RPC_PREFIX}/${STATUS_STREAM_ENDPOINT}`;
 
-  // packages/plugin/src/plugin-route-client.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/plugin-route-client.ts
   var PluginRouteFailure = class extends Error {
     constructor(code, message, details = {}) {
       super(message);
       this.code = code;
       this.details = details;
     }
+    code;
+    details;
   }, KNOWN_ERROR_NAMES = /* @__PURE__ */ new Set([
     "TimeoutError",
     "TypeError",
@@ -5817,7 +5978,7 @@ If a code was sent, recover the original submission without changing it.`,
     return typeof value == "object" && value !== null && !Array.isArray(value);
   }
 
-  // packages/plugin/src/remote-file-content-provider.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/remote-file-content-provider.ts
   function shouldUseRemoteFileViewer(status) {
     return status.mode === "remote" && status.remoteFeatures?.fileViewer === !0;
   }
@@ -5888,7 +6049,7 @@ If a code was sent, recover the original submission without changing it.`,
     return bytes;
   }
 
-  // packages/plugin/src/status-stream.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/status-stream.ts
   function parseStatus(data) {
     if (typeof data == "string")
       try {
@@ -5942,7 +6103,7 @@ If a code was sent, recover the original submission without changing it.`,
     };
   }
 
-  // packages/plugin/src/client-recovery.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client-recovery.ts
   function subscribeRemoteRecovery(feed, reconnect) {
     let previous;
     return feed.subscribe((status) => {
@@ -5951,7 +6112,7 @@ If a code was sent, recover the original submission without changing it.`,
     });
   }
 
-  // packages/plugin/src/client.ts
+  // ../../../Users/mac/Downloads/harness 开发/xagent-analysis/Xagent/packages/plugin/src/client.ts
   var clientModuleId = "xagent", controlRouteBackoffStepsMs = [1e3, 2e3, 5e3, 1e4, 3e4], ControlRouteUnavailableError = class extends Error {
     constructor(message) {
       super(message), this.name = "ControlRouteUnavailableError";
@@ -6097,13 +6258,17 @@ If a code was sent, recover the original submission without changing it.`,
               React.createElement("button", {
                 type: "button",
                 disabled: busy || status?.mode === "local",
-                onClick: () => void switchMode("local")
+                onClick: () => {
+                  switchMode("local");
+                }
               }, t("thisMachineLocal")),
               React.createElement("div", { className: "xcodexRemoteDevices" }, devices.length === 0 ? React.createElement("p", null, t("noRemoteHosts")) : devices.map((device) => React.createElement("button", {
                 type: "button",
                 key: device.deviceId,
                 disabled: busy || !device.online || status?.target?.deviceId === device.deviceId,
-                onClick: () => void switchMode("remote", device.deviceId)
+                onClick: () => {
+                  switchMode("remote", device.deviceId);
+                }
               }, `${device.name} \xB7 ${t(device.online ? "online" : "offline")}`))),
               React.createElement(RemoteProgressView, { progress, t }),
               status?.hostAuthorizationAvailable && status.host !== void 0 ? React.createElement(
