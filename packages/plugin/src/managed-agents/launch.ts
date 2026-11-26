@@ -36,11 +36,15 @@ export class ManagedLaunchPlan {
   constructor(private readonly profile: ManagedLaunchProfile, private readonly agent: string, readonly cwd: string, private readonly nativeSpawn: ManagedNativeSpawn) {
     this.ownerFingerprint = createHash('sha256').update(JSON.stringify({ profileId: profile.id, agent, cwd, home: agent === 'codex' ? profile.codexHome : profile.claudeConfigDir })).digest('hex')
   }
-  environment(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  environment(base?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
     // Host profile inherits the login shell's exports (proxy endpoint/auth, PATH) that a GUI process.env lacks.
-    const inherited = this.profile.id === 'host' ? loginShellEnvironmentSync() : {}
-    const env = { ...inherited, ...base }
-    const pathSegments = [inherited.PATH, base.PATH].flatMap(value => value?.split(delimiter) ?? [])
+    // Only enrich the default (process.env) case: an explicitly supplied base env is used verbatim,
+    // preserving the caller's exact environment contract (e.g. SDK-provided or test envs).
+    const explicitBase = base !== undefined
+    const effectiveBase = base ?? process.env
+    const inherited = !explicitBase && this.profile.id === 'host' ? loginShellEnvironmentSync() : {}
+    const env = { ...inherited, ...effectiveBase }
+    const pathSegments = [inherited.PATH, effectiveBase.PATH].flatMap(value => value?.split(delimiter) ?? [])
     if (pathSegments.length) env.PATH = [...new Set(pathSegments.filter(Boolean))].join(delimiter)
     if (this.profile.id !== 'host') {
       for (const key of this.agent === 'codex' ? ['OPENAI_API_KEY','OPENAI_BASE_URL','CODEX_API_KEY','CODEX_HOME'] : ['ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN','ANTHROPIC_BASE_URL','CLAUDE_CODE_OAUTH_TOKEN','CLAUDE_CONFIG_DIR']) delete env[key]

@@ -13,26 +13,28 @@
 - 实现: `packages/plugin/src/server-connection.ts`
   - 新增字段 `connectAttempt`（hello 成功时清零）、`lastConnectedAt`。
   - `waitBeforeRetry()`: 指数退避 `min(1s·2^attempt, maxDelayMs)` + 半 ceiling jitter；
-    2 分钟内刚连上过且 attempt ≤ 1 时走 ≤1s 快速重拨。
+    2 分钟内刚连上过且 attempt ≤ 1 时走快速重拨。**所有分支（含快速重拨）最终都被
+    `maxDelayMs` 封顶**，保留原有「delay ∈ [0, maxDelayMs]」配置契约（测试以
+    `maxDelayMs=1/100` 的紧预算断言重连时机）。
   - hello.ack 处（`this.online = true`）重置 `connectAttempt`、记录 `lastConnectedAt`。
 - 注: 控制面心跳（25s/75s）xagent 原本就有（`protocol/src/index.ts:70`、
   `server-connection.ts:437`），未重复搬。
 
-### 2. retained-event 重放 ✅
-- 参考: `connection.go:616-640`（`replayRetainedEvents` + `activateStreamAndReplay`，
-  `ledger.Replay(operationIDs)` 后逐帧 `stream.Send`）。
-- xagent 语境差异: Linger daemon 有本地持久 ledger；xagent 的等价物是
-  `session-history-cache.ts` 的 `RemoteSessionHistoryCache`
-  （snapshot + cursor + 按 seq 续帧，`recordFollowSnapshot`/`recordFollowFrame`），
-  以及 `iterateWithCachedSnapshot` 的 `backfillRange`（`session/page` 补缺失 seq，
-  缺口 >200 则 resync）。这些**原本就存在**，缺口是「transport 中途断开时没接上」。
-- 实现: `packages/plugin/src/remote-typert-gateway.ts`
-  - `AsyncValueQueue.push`: 慢消费溢出时由「清空 + TRANSPORT_CLOSED」改为
-    背压保留（丢最老一半、留最新状态帧，置 `overflowed`）。
-  - `iterate()` catch: transport 断开（非业务错误）且为 `session/follow` 时，
-    从 historyCache 快照 + cursor 走 `iterateWithCachedSnapshot` 续传，而非直接 throw。
-  - `resumeDepth`（默认 0，恢复时 +1）贯穿 `openRaw`→`iterate`→`iterateWithCachedSnapshot`，
-    限制恢复嵌套为 1 层，防止 host 持续不可达时无限递归。
+### 2. retained-event 重放 ⚠️ 已回退（与 xagent 传输层安全契约冲突）
+- 参考: `connection.go:616-640`（`replayRetainedEvents` + `activateStreamAndReplay`）。
+- 结论: **不在 gateway 层移植**。尝试把 Linger 的「断开自动续传 / 慢消费背压保留」搬进
+  `remote-typert-gateway.ts` 后，破坏了两条经评审的传输层不变量，对应测试失败：
+  - `native-stream-recovery`「carrier 仍连接时慢消费必须失败」：原设计对慢消费者
+    清空缓冲并抛 `TRANSPORT_CLOSED`（"reconnect to recover"），是防内存耗尽的资源保护边界；
+    改成「丢最老一半留最新」会掩盖停滞客户端。
+  - `client-reconnect`「在恢复的 carrier 上重开读流并加载 Host 历史」：原设计是
+    gateway 在 transport 断开时**失败旧流**（`TRANSPORT_CLOSED`），由**客户端层**在恢复的
+    carrier 上重开新流并经 `session/history` 回填——即源码注释「Do not reopen streams or
+    replay RPCs here」。gateway 内自动续传越过了这层职责分离。
+- 关键发现: Linger 想补的「重连重放保留事件」能力，xagent **已在正确的层（客户端重连 +
+  `session-history-cache.ts` 的 `RemoteSessionHistoryCache` snapshot/cursor/按 seq 续帧 +
+  `iterateWithCachedSnapshot` 的 `backfillRange`）实现**。故无需在 gateway 重复造轮子。
+- 处置: `remote-typert-gateway.ts` 已 `git checkout db746a5` 完整回退到上游，保留安全契约。
 
 ## 已落地（本仓库，新增 5 个自包含模块）
 
@@ -78,12 +80,21 @@
   `tabActions(connection)` 高层助手（navigate/evaluate/title/url）。operates 真实已登录浏览器（cookie/session/profile 完整）。
 
 ## 验证记录
-- 全部 7 项改动（2 改 + 5 新模块）均通过 esbuild TS parse。
-- 参数链路人工审计: `resumeDepth` 在 openRaw/iterate/iterateWithCachedSnapshot 三处签名与全部调用点一致，递归截断正确。
+- 6 项落地改动（1 改 server-connection + 5 新模块）+ login-shell/UI 修复均通过 esbuild TS parse。
 - Guardrail 接线 additive: `TerminalPolicy` 第 4 参可选，3 个既有构造点（harness-remote-bridge/acp/gateway/service）不改行为。
 - **完整 tsc 通过（0 错误）**: `pnpm install` 后先构建 crypto/protocol/client-core/webrtc 四个 workspace 依赖，
   再 `pnpm check`（tsconfig.test.json，含测试）。首轮 tsc 抓出并修复: desktop-takeover send 参数隐式 any、
   launch.ts 相对导入缺 .js 后缀、model-scheduling drain() 返回 void 误用 .catch、
   persistent-memory/proactive 私有字段与方法重名(entries/rules→records/ruleList)、consolidate merge 解构方向。
+- **测试回归三分法（关键）**: 首跑 full suite 17 失败。用 `git worktree` 在上游 `db746a5` 建基线对照：
+  - 与上游同路径（含空格）基线对比 → **我的改动引入 0 回归**（mine 6 失败 = baseline 6 失败，完全相同）。
+  - 6 个失败全是环境性: native-rtc-node-probe / werift-rtc / harness-remote-bridge(path traversal) /
+    managed-agent-backend / remote-tools（macOS native/Electron 探针），以及 acp-opencode-native-api
+    （checkout 路径含空格触发 `URLSearchParams`(+) vs `encodeURIComponent`(%20) 编码差异，源码未改）。
+  - 首轮多出的 11 个失败是我的改动违反既有契约，已逐一修复而非改测试:
+    server-connection 退避未受 `maxDelayMs` 封顶（4）→ 封顶；launch.ts host 登录 shell 注入污染显式 base env（1）
+    → 仅在默认 process.env 情形注入；managed-agent UI `document` 未定义 + agent label 包 span 破坏
+    button 直接文本子节点契约（4）→ `typeof document` 守卫 + label 作直接子节点；
+    remote-typert-gateway 慢消费背压/自动续传破坏传输安全不变量（2）→ 整体回退（见第 2 项）。
 - 测试: `scripts/check-with-budget.py` 依赖 systemd-run（Linux 专用），macOS 上以 `nice -n 15 vitest run --maxWorkers=2` 等效限资源执行。
-- 待: host 行为测试 + 真机断连/慢消费回归 + CDP 连真 Chrome 冒烟。
+- 待: 真机断连/慢消费回归 + CDP 连真 Chrome 冒烟 + iOS VoIP 保活真机验收。

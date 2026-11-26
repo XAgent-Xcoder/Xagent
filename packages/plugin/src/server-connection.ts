@@ -1340,16 +1340,20 @@ export class HostServerConnection {
     // gatewayRestartRedialWindow.
     const FAST_REDIAL_WINDOW_MS = 2 * 60_000
     const FAST_REDIAL_MAX_DELAY_MS = 1_000
+    const maxDelayMs = this.config.reconnect.maxDelayMs
     const recentlyConnected = this.lastConnectedAt !== undefined && Date.now() - this.lastConnectedAt < FAST_REDIAL_WINDOW_MS
     const attempt = Math.min(this.connectAttempt, 5)
-    const ceiling = Math.min(1_000 * (1 << attempt), this.config.reconnect.maxDelayMs)
+    const ceiling = Math.min(1_000 * (1 << attempt), maxDelayMs)
     let delay: number
     if (recentlyConnected && this.connectAttempt <= 1) {
-      // Quick redial after a fresh drop / server restart.
-      delay = Math.round(Math.random() * FAST_REDIAL_MAX_DELAY_MS)
+      // Quick redial after a fresh drop / server restart, but never beyond the
+      // configured maxDelayMs so tight-budget callers still reconnect promptly.
+      delay = Math.round(Math.random() * Math.min(FAST_REDIAL_MAX_DELAY_MS, maxDelayMs))
     } else {
       delay = Math.round(ceiling / 2 + Math.random() * (ceiling / 2 + 1))
     }
+    // The configured maxDelayMs always bounds the wait (full-jitter contract).
+    delay = Math.min(delay, maxDelayMs)
     this.connectAttempt = Math.min(this.connectAttempt + 1, 6)
     return new Promise(resolve => {
       const timer = setTimeout(() => { this.retryWake = undefined; resolve() }, delay)

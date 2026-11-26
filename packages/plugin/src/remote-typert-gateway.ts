@@ -186,7 +186,6 @@ export class RemoteTypertGateway implements RemoteTypertGatewayTarget {
     signal: AbortSignal,
     sessionId?: string,
     fallbackSnapshot?: Record<string, unknown>,
-    resumeDepth = 0,
   ): Promise<AsyncIterable<unknown>> {
     signal.throwIfAborted()
     const streamId = uuidV7()
@@ -240,8 +239,6 @@ export class RemoteTypertGateway implements RemoteTypertGatewayTarget {
       () => disconnected,
       sessionId,
       fallbackSnapshot,
-      payload,
-      resumeDepth,
     )
   }
 
@@ -252,12 +249,11 @@ export class RemoteTypertGateway implements RemoteTypertGatewayTarget {
     endpoint: string,
     payload: unknown,
     signal: AbortSignal,
-    resumeDepth = 0,
   ): AsyncGenerator<unknown> {
     const upstreamController = new AbortController()
     const onAbort = () => upstreamController.abort()
     signal.addEventListener('abort', onAbort, { once: true })
-    const upstreamPromise = this.openRaw(endpoint, payload, upstreamController.signal, sessionId, undefined, resumeDepth)
+    const upstreamPromise = this.openRaw(endpoint, payload, upstreamController.signal, sessionId)
     void upstreamPromise.catch(() => undefined)
     let upstreamIterator: AsyncIterator<unknown> | undefined
     let lastCursor = initialCursor
@@ -450,8 +446,6 @@ export class RemoteTypertGateway implements RemoteTypertGatewayTarget {
     disconnected: () => boolean,
     sessionId?: string,
     fallbackSnapshot?: Record<string, unknown>,
-    originalPayload?: unknown,
-    resumeDepth = 0,
   ): AsyncGenerator<unknown> {
     let resolvedSessionId = sessionId ?? ''
     try {
@@ -490,27 +484,7 @@ export class RemoteTypertGateway implements RemoteTypertGatewayTarget {
         yield normalized
       }
     } catch (error) {
-      // Transport-level disconnect on a session/follow stream: instead of
-      // dropping the consumer with TRANSPORT_CLOSED, resume from the retained
-      // snapshot+cursor in historyCache (the xagent analogue of Linger's
-      // ledger replay). Business/permission errors stay terminal.
-      const isTransportDrop = disconnected() && !(isRecord(error) && error.isDSHRemoteError === true)
-      // resumeDepth caps nested recovery at one level so a persistently
-      // unreachable Host cannot recurse openRaw→iterate→cachedSnapshot→openRaw.
-      if (isTransportDrop && endpoint === 'session/follow' && !signal.aborted && resumeDepth < 1) {
-        const cached = resolvedSessionId.length > 0
-          ? this.historyCache.getFollowSnapshot(this.client, resolvedSessionId)
-          : undefined
-        const snapshot = cached?.snapshot ?? fallbackSnapshot
-        if (snapshot !== undefined) {
-          const cursor = cached?.cursor ?? -1
-          // Resume live following from the retained snapshot; the cached-snapshot
-          // iterator backfills any missing seq via session/page and resyncs when
-          // the gap is too large, so no events are silently lost.
-          yield* this.iterateWithCachedSnapshot(resolvedSessionId, snapshot, cursor, endpoint, originalPayload, signal, resumeDepth + 1)
-          return
-        }
-      }
+      void fallbackSnapshot
       await this.deferDisconnect(error, disconnected(), signal)
       throw error
     } finally {
@@ -618,28 +592,13 @@ class AsyncValueQueue implements AsyncIterable<unknown> {
     if (waiter !== undefined) { waiter({ done: false, value }); return }
     const bytes = new TextEncoder().encode(JSON.stringify(value) ?? '').byteLength
     if (this.values.length >= 256 || this.bytes + bytes > 4 * 1024 * 1024) {
-      // Backpressure instead of drop-and-fail. A slow consumer previously lost
-      // the whole buffer and got TRANSPORT_CLOSED ("reconnect to recover").
-      // We now retain the newest frames (which carry the latest snapshot/state)
-      // and flag that older intermediate frames were skipped, so the consumer
-      // can resynchronize from the retained tail instead of reconnecting.
-      this.overflowed = true
-      // Drop the oldest half, keep the newest half (most recent state).
-      const dropCount = Math.floor(this.values.length / 2) + 1
-      for (let i = 0; i < dropCount && this.values.length > 0; i++) {
-        const dropped = this.values.shift()!
-        this.bytes -= dropped.bytes
-      }
+      this.values.length = 0; this.bytes = 0
+      this.fail(new RemoteClientError('TRANSPORT_CLOSED', 'Remote stream consumer is too slow; reconnect to recover.'))
+      return
     }
     this.bytes += bytes
     this.values.push({ value, bytes })
   }
-
-  /** True when older frames were dropped under backpressure; consumer may resync. */
-  private overflowed = false
-
-  /** Whether frames were skipped due to backpressure since the last drain. */
-  didOverflow(): boolean { return this.overflowed }
 
   close(): void {
     if (this.closed) return

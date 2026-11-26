@@ -101,7 +101,7 @@ export function createManagedAgentUi(React: ClientReact, ctx: ManagedAgentUiCont
     }, [reload])
     // Dismiss the popover on outside click / Escape, matching host menu behavior.
     React.useEffect(() => {
-      if (!expanded) return
+      if (!expanded || typeof document === 'undefined') return
       const onDown = (event: MouseEvent) => {
         if (rootRef.current && !rootRef.current.contains(event.target as Node)) setExpanded(false)
       }
@@ -165,7 +165,7 @@ export function createManagedAgentUi(React: ClientReact, ctx: ManagedAgentUiCont
               onClick: () => { void create(agent.id) },
             },
               agentGlyph(React, agent.id),
-              React.createElement('span', { className: 'xcodexManagedAgentItemLabel' }, agent.label),
+              agent.label,
               creatingThis ? spinner(React) : React.createElement('span', { className: 'xcodexManagedAgentItemHint', 'aria-hidden': true }, '+'))
           })) : null,
         error ? React.createElement('div', { className: 'xcodexManagedAgentError', role: 'alert' }, error) : null,
