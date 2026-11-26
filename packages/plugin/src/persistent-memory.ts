@@ -52,7 +52,7 @@ export interface PersistentMemoryOptions {
 export class PersistentMemory {
   private readonly directory: string
   private readonly storePath: string
-  private entries: MemoryEntry[] = []
+  private records: MemoryEntry[] = []
   private loaded = false
   private readonly consolidateWith?: PersistentMemoryOptions['consolidateWith']
 
@@ -72,13 +72,13 @@ export class PersistentMemory {
     }
     if (raw !== undefined) {
       const parsed = MemoryStoreSchema.safeParse(JSON.parse(raw))
-      this.entries = parsed.success ? parsed.data.entries : []
+      this.records = parsed.success ? parsed.data.entries : []
     }
     this.loaded = true
   }
 
   private async persist(): Promise<void> {
-    const document: MemoryStore = { schemaVersion: 1, entries: this.entries }
+    const document: MemoryStore = { schemaVersion: 1, entries: this.records }
     const temp = `${this.storePath}.${randomUUID()}.tmp`
     await writeFile(temp, JSON.stringify(document, null, 2), 'utf8')
     await rename(temp, this.storePath)
@@ -91,7 +91,7 @@ export class PersistentMemory {
       kind: input.kind, text: input.text, source: input.source ?? 'manual',
     })
     const id = randomUUID()
-    this.entries.push({ ...parsed, id, createdAt: Date.now(), lastRecalled: 0, recallCount: 0 })
+    this.records.push({ ...parsed, id, createdAt: Date.now(), lastRecalled: 0, recallCount: 0 })
     await this.persist()
     return id
   }
@@ -100,7 +100,7 @@ export class PersistentMemory {
   async recall(query: string, limit = 5): Promise<RecallHit[]> {
     await this.ensureLoaded()
     const terms = new Set(query.toLowerCase().split(/\s+/).filter((t) => t.length > 1))
-    const scored: RecallHit[] = this.entries.map((entry) => {
+    const scored: RecallHit[] = this.records.map((entry) => {
       const haystack = entry.text.toLowerCase()
       let score = 0
       for (const term of terms) if (haystack.includes(term)) score += 1
@@ -123,16 +123,16 @@ export class PersistentMemory {
   /** List every stored entry (read-only). */
   async entries(): Promise<readonly MemoryEntry[]> {
     await this.ensureLoaded()
-    return [...this.entries]
+    return [...this.records]
   }
 
   /** Drop a single memory by id. */
   async forget(id: string): Promise<boolean> {
     await this.ensureLoaded()
-    const before = this.entries.length
-    this.entries = this.entries.filter((entry) => entry.id !== id)
-    if (this.entries.length !== before) await this.persist()
-    return this.entries.length !== before
+    const before = this.records.length
+    this.records = this.records.filter((entry) => entry.id !== id)
+    if (this.records.length !== before) await this.persist()
+    return this.records.length !== before
   }
 
   /**
@@ -147,7 +147,7 @@ export class PersistentMemory {
     let pruned = 0
     const seen = new Map<string, string>()
     const kept: MemoryEntry[] = []
-    for (const entry of this.entries) {
+    for (const entry of this.records) {
       if (entry.lastRecalled === 0 && entry.createdAt < cutoff) {
         pruned += 1
         continue
@@ -166,18 +166,19 @@ export class PersistentMemory {
       try {
         const verdict = await this.consolidateWith(kept)
         const drop = new Set<string>()
-        for (const [sourceIds, targetId] of Object.entries(verdict.merge)) {
+        // merge maps keep-id → ids to fold into it.
+        for (const [targetId, sourceIds] of Object.entries(verdict.merge)) {
           if (kept.some((e) => e.id === targetId)) {
             for (const sourceId of sourceIds) drop.add(sourceId)
           }
         }
         for (const entry of kept) if (drop.has(entry.id)) merged += 1
-        this.entries = kept.filter((entry) => !drop.has(entry.id))
+        this.records = kept.filter((entry) => !drop.has(entry.id))
       } catch {
-        this.entries = kept
+        this.records = kept
       }
     } else {
-      this.entries = kept
+      this.records = kept
     }
     await this.persist()
     return { pruned, merged }

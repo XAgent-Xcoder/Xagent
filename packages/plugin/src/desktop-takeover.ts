@@ -59,7 +59,7 @@ export async function connectCdp(wsEndpoint: string): Promise<CdpConnection> {
   const targetId = createHash('sha1').update(wsEndpoint).digest('hex').slice(0, 16)
   return {
     targetId,
-    send<T>(method, params) {
+    send<T>(method: string, params?: Record<string, unknown>) {
       const id = ++seq
       return new Promise<T>((resolve, reject) => {
         pending.set(id, { resolve: (v) => resolve(v as T), reject })

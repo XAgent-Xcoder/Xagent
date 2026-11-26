@@ -88,14 +88,14 @@ export function createModelScheduler(kind: EndpointClass = 'api'): ModelSchedule
         const range = probedConcurrencyRange(state.verified, state.kind)
         if (range.max > state.max) state.max = range.max
         picked.settle({ ok: value })
-        void drain().catch(() => undefined)
+        drain()
       },
       (error: Error) => {
         state.inFlight = Math.max(0, state.inFlight - 1)
         // A failed batch never raises the cap; the endpoint retries at its
         // verified level on the next drain.
         picked.settle({ err: error })
-        void drain().catch(() => undefined)
+        drain()
       },
     )
   }

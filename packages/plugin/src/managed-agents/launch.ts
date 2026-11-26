@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams, type SpawnOptionsWithoutStd
 import { delimiter, isAbsolute } from 'node:path'
 import { createHash } from 'node:crypto'
 import type { Options } from '@anthropic-ai/claude-agent-sdk'
-import { loginShellEnvironmentSync, refreshLoginShellEnvironment } from './login-shell-environment'
+import { loginShellEnvironmentSync, refreshLoginShellEnvironment } from './login-shell-environment.js'
 
 export interface ManagedLaunchProfile { id: string; label: string; codexHome?: string; claudeConfigDir?: string }
 export interface ManagedLaunchSelection { profileId?: string }

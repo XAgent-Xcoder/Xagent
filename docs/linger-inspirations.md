@@ -81,4 +81,9 @@
 - 全部 7 项改动（2 改 + 5 新模块）均通过 esbuild TS parse。
 - 参数链路人工审计: `resumeDepth` 在 openRaw/iterate/iterateWithCachedSnapshot 三处签名与全部调用点一致，递归截断正确。
 - Guardrail 接线 additive: `TerminalPolicy` 第 4 参可选，3 个既有构造点（harness-remote-bridge/acp/gateway/service）不改行为。
-- 待: 完整 `tsc`（需先安装 workspace 依赖）+ host 行为测试 + 真机断连/慢消费回归 + CDP 连真 Chrome 冒烟。
+- **完整 tsc 通过（0 错误）**: `pnpm install` 后先构建 crypto/protocol/client-core/webrtc 四个 workspace 依赖，
+  再 `pnpm check`（tsconfig.test.json，含测试）。首轮 tsc 抓出并修复: desktop-takeover send 参数隐式 any、
+  launch.ts 相对导入缺 .js 后缀、model-scheduling drain() 返回 void 误用 .catch、
+  persistent-memory/proactive 私有字段与方法重名(entries/rules→records/ruleList)、consolidate merge 解构方向。
+- 测试: `scripts/check-with-budget.py` 依赖 systemd-run（Linux 专用），macOS 上以 `nice -n 15 vitest run --maxWorkers=2` 等效限资源执行。
+- 待: host 行为测试 + 真机断连/慢消费回归 + CDP 连真 Chrome 冒烟。

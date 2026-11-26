@@ -77,7 +77,7 @@ export interface ProactiveOptions {
 }
 
 export class Proactive {
-  private rules: ProactiveRule[] = []
+  private ruleList: ProactiveRule[] = []
   private clues: ProactiveClue[] = []
   private readonly memory: PersistentMemory
   private readonly judge?: ProactiveOptions['judge']
@@ -92,7 +92,7 @@ export class Proactive {
   async load(): Promise<void> {
     const stored = await this.memory.entries()
     // Rules were persisted as kind 'preference' entries tagged 'proactive-rule'.
-    this.rules = stored
+    this.ruleList = stored
       .filter((e) => e.source === 'proactive-rule')
       .map((e) => ProactiveRuleSchema.safeParse(JSON.parse(e.text)))
       .filter((r) => r.success)
@@ -101,7 +101,7 @@ export class Proactive {
 
   private async saveRules(): Promise<void> {
     await this.forgetRuleEntries()
-    for (const rule of this.rules) await this.memory.remember({ kind: 'preference', text: JSON.stringify(rule), source: 'proactive-rule' })
+    for (const rule of this.ruleList) await this.memory.remember({ kind: 'preference', text: JSON.stringify(rule), source: 'proactive-rule' })
   }
 
   private async forgetRuleEntries(): Promise<void> {
@@ -116,7 +116,7 @@ export class Proactive {
   /** Decide now whether to push. Deterministic fallback: notify only on high-urgency context. */
   async evaluate(context: string): Promise<{ notify: boolean; reason: string; urgency: 'low' | 'normal' | 'high' }> {
     if (this.judge) {
-      const verdict = parseJudgeVerdict(await this.judge(buildJudgePrompt(context, this.rules)))
+      const verdict = parseJudgeVerdict(await this.judge(buildJudgePrompt(context, this.ruleList)))
       if (verdict.notify && this.push) await this.push.send('Proactive', verdict.reason, verdict.urgency)
       return verdict
     }
@@ -129,7 +129,7 @@ export class Proactive {
    * context prefix become a suppress rule, repeated 'informed' become notify.
    */
   async consolidateNight(): Promise<{ rules: number }> {
-    if (this.clues.length === 0) return { rules: this.rules.length }
+    if (this.clues.length === 0) return { rules: this.ruleList.length }
     const bySignal = new Map<string, ProactiveClue[]>()
     for (const clue of this.clues) {
       const prefix = clue.context.slice(0, 64)
@@ -143,18 +143,18 @@ export class Proactive {
     }
     this.clues = []
     await this.saveRules()
-    return { rules: this.rules.length }
+    return { rules: this.ruleList.length }
   }
 
   private upsertRule(condition: string, disposition: ProactiveRule['disposition'], group: readonly ProactiveClue[]): void {
-    const existing = this.rules.find((r) => r.condition === condition)
+    const existing = this.ruleList.find((r) => r.condition === condition)
     const learnedFrom = group.map((c) => c.id)
     if (existing) {
       existing.disposition = disposition
       existing.confidence = Math.min(1, existing.confidence + 0.1)
       existing.learnedFrom = [...new Set([...existing.learnedFrom, ...learnedFrom])]
     } else {
-      this.rules.push({
+      this.ruleList.push({
         id: randomUUID(), condition, disposition, confidence: 0.5,
         learnedFrom, createdAt: Date.now(),
       })
@@ -162,7 +162,7 @@ export class Proactive {
   }
 
   rules(): readonly ProactiveRule[] {
-    return this.rules
+    return this.ruleList
   }
 }
 
